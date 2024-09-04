@@ -1,4 +1,4 @@
-# Viswanath-Cutter-2024
+# Sex-biased and tissue-biased gene expression evolution in _C. remanei_ and _C. latens_
 
 ## Author
 **Athmaja Viswanath**  

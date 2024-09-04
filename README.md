@@ -9,3 +9,15 @@ The regulation of gene expression is crucial for an organism’s development. Di
 
 ## Repository Overview
 On-going analysis for _C. remanei_ and _C. latens_ datasets. This dataset contains data for two species (_C. remanei_ & _C. latens_), sex (males & females) and tissues (gonad & soma)
+
+## Repository Structure
+
+### 1-Input
+- Input data files currently not made available
+
+### 2-Processing
+- Contains scripts for differential gene expression analysis and Weighted gene co-expression analysis (WGCNA)
+- Scripts are part of on-going analyses and are subject to change
+
+### 3-Output
+- Contains all the generated figures and additional files resulting from the analyses

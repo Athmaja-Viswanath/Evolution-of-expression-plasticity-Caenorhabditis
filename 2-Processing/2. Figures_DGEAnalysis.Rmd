@@ -1,0 +1,368 @@
+---
+title: "Figures"
+author: "Athmaja Viswanath"
+date: "2024-09-19"
+output: pdf_document
+---
+
+This Rmarkdwon file contains all the plots used to visualize differentially expressed genes from 1.DGEAnalysis.Rmd. Mainly contains bar plots, proportion plots, chromosomal enrichment plots, upset plots. The data used are from 1.DGEAnalysis.Rmd which are also saved in 3-Output. 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+#0. Loading required packages and files
+```{r}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+library(tibble)
+
+# Reading in necessary files
+chrom_info <- read.table("../1-Input/Cremanie_genenames_and_chromosome.txt", fill = TRUE) #chromosomal information
+##Read species-biased genes information (this data was generated from 1.DGEAnalysis.Rmd and stored in 3-Output)
+crexclat_res = read.csv("../3-Output/crexclat_genes.csv") #Saving the data under the same name as from analysis
+##Read species-biased genes information (this data was generated from 1.DGEAnalysis.Rmd and stored in 3-Output)
+gxs_res = read.csv("../3-Output/gonadxsoma_genes.csv") #Saving the data under the same name as from analysis
+##Read sex-biased genes information (this data was generated from 1.DGEAnalysis.Rmd and stored in 3-Output)
+mxf_res = read.csv("../3-Output/mxf_genes.csv") #Saving the data under the same name as from analysis
+```
+
+#1. PART I - Visualizing differentially expression genes 
+##A. FIGURE 1A-VISUALIZING SPECIES-BIASED GENES
+
+```{r}
+sp_genes_count = data.frame(gene_category = c("Conserved", "Conserved", "DEG","DEG"),
+                            genes_count = c(6865, 0, 3339, 3224), #creating a proxy for conserved deg cetagory
+                            DEG_category = c("Clat-b", "Cre-b","Clat-b","Cre-b"))
+
+ggplot(sp_genes_count, aes(x = sp_genes_count$gene_category, y = sp_genes_count$genes_count, fill = sp_genes_count$DEG_category)) +
+  geom_bar(stat = "identity", position = "stack") +
+  xlab(" ")+ 
+  ylab("Number of genes")+
+  theme(plot.title = element_text(size = 26, face = "bold", hjust = 0.5, vjust = 0.5))+
+  #coord_cartesian(ylim = c(0, 6500))+
+  #scale_fill_manual(values = c( "#afced0", "#4b7d81", "#696967", '#DCDDDF'))+
+  theme(axis.title.y = element_text(size = 14, hjust = 0.5))+
+  theme(axis.text.x = element_text(size = 26,face = "bold", colour = "black"))+
+  theme(axis.text.y = element_text(size = 10))+
+  theme(axis.title.x = element_text(size = 14))+
+  theme(axis.title.y = element_text(size = 20, hjust = 0.5))+
+  theme(axis.text.y = element_text(color="black", size=15))+
+  guides(fill=guide_legend(title=" "))+
+  # scale_colour_brewer(palette = 2)+
+  #scale_x_discrete(limits = c("Conserved","Differentially expressed", "C. nigoni dominant", "Ambiguous"))+ ##reordering character x-axis
+  expand_limits(y=0)+
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks=seq(0,7500,500))+
+  ggtitle("Species-biased genes")
+
+```
+
+##B. FIGURE 1B-VISUALIZING SPECIES-BIASED GENES ON CHROMOSOMES
+
+###Getting chromosomal information for all the different orthologous genes
+```{r}
+# Read chromosomal information
+chrom_info <- read.table("../1-Input/Cremanie_genenames_and_chromosome.txt", fill = TRUE)
+
+# Create a list of chromosome subsets,each list element is a dataframe with genes corresponding to each chromosome
+chromosomes <- unique(chrom_info$V1)
+chrom_info_list <- lapply(chromosomes, function(chr) {
+  subset(chrom_info, V1 == chr)
+})
+
+# Label orthologous genes with chromosome information
+orthologs_chr_list <- lapply(seq_along(chrom_info_list), function(i) {
+  chr_data <- chrom_info_list[[i]]
+  chr_name <- chromosomes[i]
+  ortho_data <- orthologs %>% 
+    filter(C..remanei.Gene.name %in% chr_data$V2) %>%
+    mutate(chromosome = chr_name)
+  
+  return(ortho_data)
+})
+
+# Combine all chromosome data into one dataframe
+orthologs_chr <- bind_rows(orthologs_chr_list)
+table(orthologs_chr$chromosome)
+
+# Print number of genes identified
+cat("Number of genes on chromosomes:", nrow(orthologs_chr), "\n")
+cat("Total number of orthologs:", nrow(orthologs), "\n")
+
+##Saving results
+write.table(orthologs_chr, file = "../3-Output/orthologs_chr.txt", sep = "\t",quote = FALSE,
+           row.names = FALSE)
+
+```
+
+##I. Integrating chromosomal data with species-biased genes 
+
+```{r}
+##Read species-biased genes information (this data was generated from 1.DGEAnalysis.Rmd and stored in 3-Output)
+crexclat_res = read.csv("../3-Output/crexclat_genes.csv") #Saving the data under the same name as from analysis
+rownames(crexclat_res) = crexclat_res$X 
+crexclat_res = crexclat_res[, -1]
+head(crexclat_res)
+
+# Separate results into up/down regulated and conserved
+crexclat_res1 = crexclat_res %>% filter(crexclat_res$crexclat != 0) # Upregulated and downregulated genes
+crexclat_res2 = crexclat_res %>% filter(crexclat_res$crexclat == 0) #conserved expression genes
+
+# Create a dataframe with non-NA entries based on orthologs_chr
+crexclat_res_a <- crexclat_res[orthologs_chr$C..remanei.Gene.name_C.latens.Gene.name, ] %>%
+  na.omit() %>%
+  rownames_to_column()
+head(crexclat_res_a)
+# Update rownames in orthologs_chr
+rownames(orthologs_chr) <- orthologs_chr$C..remanei.Gene.name_C.latens.Gene.name
+
+# Combine dataframes for genes present in both datasets - DGE and chromosomal info
+crexclat_res_chr <- na.omit(orthologs_chr[crexclat_res_a$rowname, ]) %>%
+  cbind(crexclat_res_a)
+
+# Frequency of species-biased genes across chromosomes
+spgenes_freq <- as.data.frame(table(crexclat_res_chr$chromosome, crexclat_res_chr$crexclat))
+View(spgenes_freq)
+spgenes_freq <- spgenes_freq %>% 
+  filter(Var1 == "I" | Var1 == "II" | Var1 == "III" | Var1 == "IV" | Var1 == "V" | Var1 == "X")
+
+
+# Plot species-biased genes across chromosomes
+#higher in Cre = 1; higher in Clat= -1; conserved = 0
+ggplot(spgenes_freq, aes(x = Var1, y = Freq, fill = Var2)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "", y = "Number of genes", title = "Species-biased genes") +
+  theme(
+    plot.title = element_text(size = 26, face = "bold", hjust = 0.5),
+    axis.title.y = element_text(size = 20, hjust = 0.5),
+    axis.text.x = element_text(size = 26, face = "bold", colour = "black"),
+    axis.text.y = element_text(size = 15, color = "black"),
+    axis.title.x = element_text(size = 14)
+  ) +
+  expand_limits(y = 0) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks = seq(0, 6500, 500)) +
+  guides(fill = guide_legend(title = " "))
+
+
+# Proportion of species-biased genes on chromosomes
+ggplot(spgenes_freq) +
+  aes(x = Var1, fill = Var2, weight = Freq) +
+  geom_bar(position = "fill") +
+  geom_text(stat = "prop", position = position_fill(vjust = 0.5)) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks = seq(0, 1, 0.25))
+
+
+ggplot(spgenes_freq) +
+  aes(x = spgenes_freq$Var1, fill = spgenes_freq$Var2, weight = spgenes_freq$Freq, by = spgenes_freq$Var1) +
+  geom_bar(position = "fill") +
+  geom_text(stat = "prop", position = position_fill(.5))+
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks=seq(0,1,0.25))
+
+```
+
+##II. Integrating chromosmal data with tissue-biased genes 
+
+```{r}
+##Read species-biased genes information (this data was generated from 1.DGEAnalysis.Rmd and stored in 3-Output)
+gxs_res = read.csv("../3-Output/gonadxsoma_genes.csv") #Saving the data under the same name as from analysis
+rownames(gxs_res) = gxs_res$X 
+gxs_res = gxs_res[, -1]
+head(gxs_res)
+
+# Separate results into significant (up/downregualted) and non-significant (tissue neutral)
+gxs_res1 = gxs_res %>% filter(gxs_res$gxs != 0) #tissue-biased genes
+gxs_res2 = gxs_res %>% filter(gxs_res$gxs == 0) #tissue-neutral genes
+
+# Create a dataframe with non-NA entries based on orthologs_chr
+gxs_res_a <- gxs_res[orthologs_chr$C..remanei.Gene.name_C.latens.Gene.name, ] %>%
+  na.omit() %>%
+  rownames_to_column()
+head(gxs_res_a)
+# Update rownames in orthologs_chr
+rownames(orthologs_chr) <- orthologs_chr$C..remanei.Gene.name_C.latens.Gene.name
+
+# Combine dataframes for genes present in both datasets - DGE and chromosomal info
+gxs_res_chr <- na.omit(orthologs_chr[gxs_res_a$rowname, ]) %>%
+  cbind(gxs_res_a)
+
+# Frequency of species-biased genes across chromosomes
+gsgenes_freq <- as.data.frame(table(gxs_res_chr$chromosome, gxs_res_chr$gxs))
+View(gsgenes_freq)
+gsgenes_freq <- gsgenes_freq %>% 
+  filter(Var1 == "I" | Var1 == "II" | Var1 == "III" | Var1 == "IV" | Var1 == "V" | Var1 == "X")
+
+
+# Plot tissue-biased genes across chromosomes
+#Soma-biased = 1; gonad-biased = -1; tissue-neutral = 0
+ggplot(gsgenes_freq, aes(x = Var1, y = Freq, fill = Var2)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "", y = "Number of genes", title = "Tissue-biased genes") +
+  theme(
+    plot.title = element_text(size = 26, face = "bold", hjust = 0.5),
+    axis.title.y = element_text(size = 20, hjust = 0.5),
+    axis.text.x = element_text(size = 26, face = "bold", colour = "black"),
+    axis.text.y = element_text(size = 15, color = "black"),
+    axis.title.x = element_text(size = 14)
+  ) +
+  expand_limits(y = 0) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks = seq(0, 6500, 500)) +
+  guides(fill = guide_legend(title = " "))
+
+
+# Proportion of tissue-biased genes on chromosomes
+ggplot(gsgenes_freq) +
+  aes(x = Var1, fill = Var2, weight = Freq) +
+  geom_bar(position = "fill") +
+  geom_text(stat = "prop", position = position_fill(vjust = 0.5)) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks = seq(0, 1, 0.25))
+
+
+ggplot(gsgenes_freq) +
+  aes(x = gsgenes_freq$Var1, fill = gsgenes_freq$Var2, weight = gsgenes_freq$Freq, by = gsgenes_freq$Var1) +
+  geom_bar(position = "fill") +
+  geom_text(stat = "prop", position = position_fill(.5))+
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks=seq(0,1,0.25))
+
+```
+
+##III. Integrating chromosmal data with sex-biased genes 
+
+
+```{r}
+##Read sex-biased genes information (this data was generated from 1.DGEAnalysis.Rmd and stored in 3-Output)
+mxf_res = read.csv("../3-Output/mxf_genes.csv") #Saving the data under the same name as from analysis
+rownames(mxf_res) = mxf_res$X 
+mxf_res = mxf_res[, -1]
+head(mxf_res)
+
+# Separate results into sex-biased and sex-neutral genes
+mxf_res1 = mxf_res %>% filter(mxf_res$mxf != 0)
+mxf_res2 = mxf_res %>% filter(mxf_res$mxf == 0)
+
+# Create a dataframe with non-NA entries based on orthologs_chr
+mxf_res_a <- mxf_res[orthologs_chr$C..remanei.Gene.name_C.latens.Gene.name, ] %>%
+  na.omit() %>%
+  rownames_to_column()
+head(mxf_res_a)
+# Update rownames in orthologs_chr
+rownames(orthologs_chr) <- orthologs_chr$C..remanei.Gene.name_C.latens.Gene.name
+
+# Combine dataframes for genes present in both datasets - DGE and chromosomal info
+mxf_res_chr <- na.omit(orthologs_chr[mxf_res_a$rowname, ]) %>%
+  cbind(mxf_res_a)
+
+# Frequency of species-biased genes across chromosomes
+mfgenes_freq <- as.data.frame(table(mxf_res_chr$chromosome, mxf_res_chr$mxf))
+View(mfgenes_freq)
+mfgenes_freq <- mfgenes_freq %>% 
+  filter(Var1 == "I" | Var1 == "II" | Var1 == "III" | Var1 == "IV" | Var1 == "V" | Var1 == "X")
+
+
+# Plot tissue-biased genes across chromosomes
+#male-biased = 1; female-biased = -1; sex-neutral = 0
+ggplot(mfgenes_freq, aes(x = Var1, y = Freq, fill = Var2)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "", y = "Number of genes", title = "Tissue-biased genes") +
+  theme(
+    plot.title = element_text(size = 26, face = "bold", hjust = 0.5),
+    axis.title.y = element_text(size = 20, hjust = 0.5),
+    axis.text.x = element_text(size = 26, face = "bold", colour = "black"),
+    axis.text.y = element_text(size = 15, color = "black"),
+    axis.title.x = element_text(size = 14)
+  ) +
+  expand_limits(y = 0) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks = seq(0, 6500, 500)) +
+  guides(fill = guide_legend(title = " "))
+
+
+# Proportion of tissue-biased genes on chromosomes
+ggplot(mfgenes_freq) +
+  aes(x = Var1, fill = Var2, weight = Freq) +
+  geom_bar(position = "fill") +
+  geom_text(stat = "prop", position = position_fill(vjust = 0.5)) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks = seq(0, 1, 0.25))
+
+
+ggplot(mfgenes_freq) +
+  aes(x = mfgenes_freq$Var1, fill = mfgenes_freq$Var2, weight = mfgenes_freq$Freq, by = mfgenes_freq$Var1) +
+  geom_bar(position = "fill") +
+  geom_text(stat = "prop", position = position_fill(.5))+
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks=seq(0,1,0.25))
+
+```
+
+#2. PART II - Visualizing interactions between variables
+##A. Figure 3.4
+###I. Finding genes within each category of genes by plotting upset plot
+#######################################################################
+
+```{r}
+# Load required libraries
+library(UpSetR)
+library(ComplexHeatmap)
+library(tibble)
+
+# Create a list of gene names from various results
+genelist <- list(
+  "Sex" = row.names(mxf_res1), 
+  "SpxSex" = row.names(spxsex_res1), 
+  "TSxSex" = row.names(tsxsex_res1),
+  "Species" = row.names(crexclat_res1), 
+  "SpxTS" = row.names(spxts_res1), 
+  "Tissue" = row.names(gxs_res1)
+)
+
+#library(UpSetR)
+# Generate UpSet plot with specified parameters
+upset_data <- fromList(genelist)
+
+# First UpSet plot with frequency and degree grouping - all gene categories
+UpSetR::upset(
+  upset_data, 
+  nsets = 12, 
+  nintersects = NA, 
+  order.by = "freq", 
+  group.by = "degree",
+  mainbar.y.label = "Number of Common Genes", 
+  sets.x.label = "Total Number of Genes", 
+  set_size.show = TRUE, 
+  set_size.scale_max = 11000, 
+  set_size.numbers_size = 12, 
+  line.size = 0.5, 
+  point.size = 3
+)
+
+
+###Second upset plot using a different package and extract gene names
+
+##library(ComplexHeatmap)
+# Create a combination matrix for further analysis
+m3 <- make_comb_mat(genelist, min_set_size = 1)
+
+# Extract gene names for a specific intersection category
+genes_in_comb <- extract_comb(m3, "000001")
+
+##### Creating Additional UpSet Plots #####
+
+# Plot with default settings
+UpSet(m3)
+
+#Plot upset plot with top 10 gene categories (largest intersection size
+
+#creating data to retain top 10 ctegories
+top_combinations <- comb_size(m3) %>% 
+     sort(decreasing = TRUE) %>% 
+     head(10) %>% 
+     names()
+
+#plotting upset plot
+UpSet(m3[top_combinations], 
+       comb_order = order(comb_size(m3[top_combinations]), decreasing = TRUE),
+      top_annotation = upset_top_annotation(m3[top_combinations],add_numbers = TRUE, ylim = c(0, 4000)),
+      right_annotation = upset_right_annotation(m3[top_combinations], add_numbers = TRUE))
+
+```
+
+
+
+

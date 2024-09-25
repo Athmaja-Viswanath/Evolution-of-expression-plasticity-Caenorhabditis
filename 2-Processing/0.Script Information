@@ -1,0 +1,6 @@
+This file contains details about each script used in this project
+this project contains the following scripts along with the information
+
+Script 1. 1.DEGAnalysis.Rmd - has all the code to run differential gene expression analysis usign DESeq2 and exctract different contrasts.
+it also has code to extract gene species-biased, sex-biased and tissue-biased gene lists along with contributions of interaction terms
+Script 2. 2.Figures_DGEAnalysis.Rmd - contains all the plots used to visualize differentially expressed genes from Script 1. Moslty contains bar plots, proportion plots, chromosomal enrichment plots, upset plots. The data used are from Script 1. 

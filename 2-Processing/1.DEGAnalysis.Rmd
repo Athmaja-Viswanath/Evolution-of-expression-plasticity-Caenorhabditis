@@ -346,9 +346,5 @@ table(tsxsex_res$tsxsex)
 ```
 
 
-#3
-##A
-###I
-
 
 

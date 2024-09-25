@@ -16,6 +16,10 @@ knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
 library(ggplot2)
 library(tibble)
+library(ggstats)
+library(UpSetR)
+library(ComplexHeatmap)
+
 
 # Reading in necessary files
 chrom_info <- read.table("../1-Input/Cremanie_genenames_and_chromosome.txt", fill = TRUE) #chromosomal information
@@ -145,6 +149,7 @@ ggplot(spgenes_freq, aes(x = Var1, y = Freq, fill = Var2)) +
 
 
 # Proportion of species-biased genes on chromosomes
+
 ggplot(spgenes_freq) +
   aes(x = Var1, fill = Var2, weight = Freq) +
   geom_bar(position = "fill") +
@@ -298,9 +303,9 @@ ggplot(mfgenes_freq) +
 
 ```{r}
 # Load required libraries
-library(UpSetR)
-library(ComplexHeatmap)
-library(tibble)
+# library(UpSetR)
+# library(ComplexHeatmap)
+# library(tibble)
 
 # Create a list of gene names from various results
 genelist <- list(

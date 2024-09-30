@@ -1,0 +1,749 @@
+---
+title: "4.Figures_WGCNA_WT"
+author: "Athmaja Viswanath"
+date: "2024-09-25"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#0. Loading required packages
+```{r}
+library(WGCNA)
+library(DESeq2)
+library(tidyverse)
+library(ggplot2)
+library(CorLevelPlot)
+library(gridExtra)
+library(VennDiagram)
+library(grid)
+library(lme4)
+library(dplyr)
+
+#`%notin%` <- Negate(`%in%`)
+options(scipen = 999)  # Increase penalty to avoid scientific notation
+
+```
+
+
+```{r}
+# module name information
+module_number <- data.frame(Module_Colour = c("MEgrey", "MEmagenta", "MEbrown", "MEgreenyellow", "MEblack", "MEturquoise",
+                                                  "MEgreen", "MEpink", "MEred", "MEblue", "MEyellow", "MEpurple"),
+                                mcolour = c("grey", "magenta", "brown", "greenyellow", "black", "turquoise",
+                                                  "green", "pink", "red", "blue", "yellow", "purple"),
+                                module_number = c("M0", "M1", "M2", "M3", "M4", "M5", 
+                                                  "M6", "M7", "M8", "M9", "M10", "M11"))
+```
+
+
+#1. Plotting dendrogram 
+this needs the bwnet (network constructed in 3.WGCNA_WT.Rmd), this code is also present after network creation
+
+```{r}
+# Plot the dendrogram with color assignments for both unmerged and merged modules
+# plotDendroAndColors(bwnet$dendrograms[[1]], 
+#                     cbind(bwnet$unmergedColors, bwnet$colors), 
+#                     c("unmerged", "merged"), 
+#                     dendroLabels = FALSE,
+#                     oddGuide = TRUE,
+#                     hang = 0.03, 
+#                     guideHang = 0.05)
+# 
+# 
+# dendo1 = plotDendroAndColors(bwnet$dendrograms[[1]], 
+#                              cbind(bwnet$colors),
+#                              c("merged"),
+#                              dendroLabels = FALSE,
+#                              oddGuide = TRUE, 
+#                              hang = 0.03,
+#                              guideHang = 0.05)
+```
+
+#2. Eigengene dendrogram
+
+```{r}
+
+module_eigengenes = read.csv("../3-Output/module eigengenes values_WT.csv")
+row.names(module_eigengenes) = module_eigengenes$X
+module_eigengenes = module_eigengenes[, -1]
+
+#Eigengene Dendrograms 
+eingen_dendo = plotEigengeneNetworks(module_eigengenes, "Eigengene dendrogram", marDendro = c(0,4,2,0),
+                      plotHeatmaps = FALSE, excludeGrey = FALSE)
+
+#Adjacency Matrix
+eingen_heatmap = plotEigengeneNetworks(module_eigengenes, "Eigengene adjacency heatmap", marHeatmap = c(3,4,2,2),
+                      plotDendrograms = FALSE, xLabelsAngle = 90, colorLabels = FALSE)
+
+```
+
+#3. Visualize the number of genes in each module
+
+```{r}
+###loading file which contains genes and their corresponding modules (obtained from above)
+bwnet_df = read.table("../3-Output/WGCNA_modulegenes.txt", fill = T)
+
+
+# Count the number of genes in each module
+modules_counts = as.data.frame(table(bwnet_df$V2))
+
+# Create a bar plot of gene counts per module
+ggplot(modules_counts, aes(x=Var1, y = Freq, fill = Var1))+
+  geom_bar(stat = "identity") +
+  xlab(" ")+ 
+  ylab("Number of genes")+
+  theme(plot.title = element_text(size = 26, face = "bold", hjust = 0.5, vjust = 0.5))+
+  coord_cartesian(ylim = c(0, 3500))+
+  #scale_fill_manual(values = c( "#afced0", "#4b7d81", "#696967", '#DCDDDF'))+
+  theme(axis.title.y = element_text(size = 14, hjust = 0.5))+
+  theme(axis.text.x = element_text(size = 10,face = "bold", colour = "black"))+
+  theme(axis.text.y = element_text(size = 10))+
+  theme(axis.title.x = element_text(size = 14))+
+  theme(axis.title.y = element_text(size = 20, hjust = 0.5))+
+  theme(axis.text.y = element_text(color="black", size=15))+
+  guides(fill=guide_legend(title=" "))+
+  # scale_colour_brewer(palette = 2)+
+  #scale_x_discrete(limits = c("Conserved","Differentially expressed", "C. nigoni dominant", "Ambiguous"))+ ##reordering character x-axis
+  expand_limits(y=0)+
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks=seq(0,3500,500))+
+  ggtitle("WGCNA Modules")
+
+
+# Save the plot
+#ggsave("../3-Output/2.1WGCNA_Modules_Plot.pdf", plot, width = 10, height = 6, dpi = 300)
+```
+
+#4. Visualize chromosomal distribution of modules
+```{r}
+#Load file with orthologous gene names and their corresponding chromosomes
+orthologs_chr = read.table(file = "../3-Output/orthologs_chr.txt")
+
+#Read module genes information 
+WGCNA_modulegenes = read.table(file = "../3-Output/WGCNA_modulegenes.txt")
+#changing rownames to gene names (first column and deleting the first column)
+rownames(WGCNA_modulegenes) = WGCNA_modulegenes$V1 
+#WGCNA_modulegenes = WGCNA_modulegenes[, -1]
+head(WGCNA_modulegenes)
+
+
+# Create a dataframe with non-NA entries based on orthologs_chr
+WGCNA_modulegenes_a <- WGCNA_modulegenes[orthologs_chr$C..remanei.Gene.name_C.latens.Gene.name, ] %>%
+  na.omit() %>%
+  rownames_to_column()
+head(WGCNA_modulegenes_a)
+# Update rownames in orthologs_chr
+rownames(orthologs_chr) <- orthologs_chr$C..remanei.Gene.name_C.latens.Gene.name
+
+# Combine dataframes for genes present in both datasets - modules and chromosomal info
+WGCNA_modulegenes_chr <- na.omit(orthologs_chr[WGCNA_modulegenes_a$rowname, ]) %>%
+  cbind(WGCNA_modulegenes_a) %>%
+  select(-rowname, -V1)
+
+WGCNA_modulegenes_chr <- WGCNA_modulegenes_chr %>% 
+  filter(chromosome == "I" | chromosome == "II" | chromosome == "III" | chromosome == "IV" | chromosome == "V" | chromosome == "X")
+
+WGCNA_modulegenes_chr_freq <- as.data.frame(table(WGCNA_modulegenes_chr$chromosome, WGCNA_modulegenes_chr$V2))
+View(WGCNA_modulegenes_chr_freq)
+
+
+##Plotting bar plot 
+
+ggplot(WGCNA_modulegenes_chr, aes(x = WGCNA_modulegenes_chr$chromosome, fill = WGCNA_modulegenes_chr$V2)) + 
+  geom_bar() +
+  labs(x = "", y = "Number of genes", title = "Distribution of WGCNA modules") +
+  theme(
+    plot.title = element_text(size = 26, face = "bold", hjust = 0.5),
+    axis.title.y = element_text(size = 20, hjust = 0.5),
+    axis.text.x = element_text(size = 26, face = "bold", colour = "black"),
+    axis.text.y = element_text(size = 15, color = "black"),
+    axis.title.x = element_text(size = 14)) +
+  expand_limits(y = 0) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks = seq(0, 6500, 500)) +
+  guides(fill = guide_legend(title = " "))
+
+table(WGCNA_modulegenes_chr$chromosome, WGCNA_modulegenes_chr$V2)
+
+# Proportion of species-biased genes on chromosomes
+
+ggplot(WGCNA_modulegenes_chr_freq) +
+  aes(x = Var1, fill = Var2, weight = Freq) +
+  geom_bar(position = "fill") +
+  geom_text(stat = "prop", position = position_fill(vjust = 0.5)) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks = seq(0, 1, 0.25))
+
+
+ggplot(WGCNA_modulegenes_chr_freq) +
+  aes(x = Var1, fill = Var2, weight = Freq, by = Var1) +
+  geom_bar(position = "fill") +
+  geom_text(stat = "prop", position = position_fill(.5))+
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks=seq(0,1,0.25))
+
+
+```
+
+#5. Visualize Eigengene Plots for each module
+```{r}
+#Make a text file with average module eigen gene values across replicates for each module
+
+# Load average counts data
+average_counts <- read.table("../3-Output/Average_MEvalues.txt", sep = "\t", header = TRUE, comment.char = "#")
+
+# Add metadata columns
+average_counts$Species <- rep(c("Cre", "Clat"), each = 4)
+average_counts$Sex <- rep(c("F", "F", "M", "M"), times = 2)
+average_counts$Tissue <- rep(c("G", "S"), times = 4)
+average_counts$S_Sp <- paste(average_counts$Species, average_counts$Sex, sep = "_")
+
+# Display structure of the data
+str(average_counts)
+
+######################
+# Plot for each module
+######################
+
+# Turquoise
+average_counts %>% 
+  ggplot(aes(Tissue, MEturquoise, col = S_Sp, group = S_Sp)) +
+  geom_hline(yintercept=0, color = "black", linetype="dashed")+
+  scale_y_continuous(limits = c(-0.6, 0.6)) +
+  geom_point(show.legend=T, alpha=1, size = 2.5) +
+  theme_bw() +
+  stat_smooth(method = "lm") +
+  ggtitle("M5 N = 3156")
+
+
+# BLUE
+average_counts %>% 
+  ggplot(aes(Tissue, MEblue, col = S_Sp, group = S_Sp)) +
+  geom_hline(yintercept=0, color = "black", linetype="dashed")+
+  scale_y_continuous(limits = c(-0.6, 0.6)) +
+  geom_point(show.legend=T, alpha=1, size = 2.5) +
+  theme_bw() +
+  stat_smooth(method = "lm") +
+  ggtitle("M9 N = 2761")
+
+# GREENYELLOW
+average_counts %>% 
+  ggplot(aes(Tissue, MEgreenyellow, col = S_Sp, group = S_Sp)) +
+  geom_hline(yintercept=0, color = "black", linetype="dashed")+
+  scale_y_continuous(limits = c(-0.6, 0.6)) +
+  geom_point(show.legend=T, alpha=1, size = 2.5) +
+  theme_bw() +
+  #facet_wrap(~Species) +
+  stat_smooth(method = "lm") +
+  ggtitle("M3 N = 133")
+
+# PURPLE
+average_counts %>% 
+  ggplot(aes(Tissue, MEpurple, col = S_Sp, group = S_Sp)) +
+  geom_hline(yintercept=0, color = "black", linetype="dashed")+
+  scale_y_continuous(limits = c(-0.6, 0.6)) +
+  geom_point(show.legend=T, alpha=1, size = 2.5) +
+  theme_bw() +
+  #facet_wrap(~Species) +
+  stat_smooth(method = "lm") +
+  ggtitle("M11 N = 164")
+
+# RED
+average_counts %>% 
+  ggplot(aes(Tissue, MEred, col = S_Sp, group = S_Sp)) +
+  geom_hline(yintercept=0, color = "black", linetype="dashed")+
+  scale_y_continuous(limits = c(-0.6, 0.6)) +
+  geom_point(show.legend=T, alpha=1, size = 2.5) +
+  theme_bw() +
+  #facet_wrap(~Species) +
+  stat_smooth(method = "lm") +
+  ggtitle("M8 N = 652")
+
+# BLACK
+average_counts %>% 
+  ggplot(aes(Tissue, MEblack, col = S_Sp, group = S_Sp)) +
+  geom_hline(yintercept=0, color = "black", linetype="dashed")+
+  scale_y_continuous(limits = c(-0.6, 0.6)) +
+  geom_point(show.legend=T, alpha=1, size = 2.5) +
+  theme_bw() +
+  #facet_wrap(~Species) +
+  stat_smooth(method = "lm") +
+  ggtitle("M4 N = 583")
+
+# GREEN
+average_counts %>%
+  ggplot(aes(Tissue, MEgreen, col = S_Sp, group = S_Sp)) +
+  geom_hline(yintercept=0, color = "black", linetype="dashed")+
+  scale_y_continuous(limits = c(-0.6, 0.6)) +
+  geom_point(show.legend=T, alpha=1, size = 2.5) +
+  theme_bw() +
+  #facet_wrap(~Species) +
+  stat_smooth(method = "lm") +
+  ggtitle("M6 N = 822")
+
+
+# YELLOW
+average_counts %>% 
+  ggplot(aes(Tissue, MEyellow, col = S_Sp, group = S_Sp)) +
+  geom_hline(yintercept=0, color = "black", linetype="dashed")+
+  scale_y_continuous(limits = c(-0.6, 0.6)) +
+  geom_point(show.legend=T, alpha=1, size = 2.5) +
+  theme_bw() +
+  #facet_wrap(~Species) +
+  stat_smooth(method = "lm") +
+  ggtitle("M10 N = 979")
+
+# PINK
+average_counts %>% 
+  ggplot(aes(Tissue, MEpink, col = S_Sp, group = S_Sp)) +
+  geom_hline(yintercept=0, color = "black", linetype="dashed")+
+  scale_y_continuous(limits = c(-0.6, 0.6)) +
+  geom_point(show.legend=T, alpha=1, size = 2.5) +
+  theme_bw() +
+  #facet_wrap(~Species) +
+  stat_smooth(method = "lm") +
+  ggtitle("M7 N = 398")
+
+# BROWN
+average_counts %>% 
+  ggplot(aes(Tissue, MEbrown, col = S_Sp, group = S_Sp)) +
+  geom_hline(yintercept=0, color = "black", linetype="dashed")+
+  scale_y_continuous(limits = c(-0.6, 0.6)) +
+  geom_point(show.legend=T, alpha=1, size = 2.5) +
+  theme_bw() +
+  #facet_wrap(~Species) +
+  stat_smooth(method = "lm") +
+  ggtitle("M2 N = 1770")
+
+# MAGENTA
+average_counts %>% 
+  ggplot(aes(Tissue, MEmagenta, col = S_Sp, group = S_Sp)) +
+  geom_hline(yintercept=0, color = "black", linetype="dashed")+
+  scale_y_continuous(limits = c(-0.6, 0.6)) +
+  geom_point(show.legend=T, alpha=1, size = 2.5) +
+  theme_bw() +
+  #facet_wrap(~Species) +
+  stat_smooth(method = "lm") +
+  ggtitle("M1 N = 274")
+
+
+# GREY
+average_counts %>% 
+  ggplot(aes(Tissue, MEgrey, col = S_Sp, group = S_Sp)) +
+  geom_hline(yintercept=0, color = "black", linetype="dashed")+
+  scale_y_continuous(limits = c(-0.6, 0.6)) +
+  geom_point(show.legend=T, alpha=1, size = 2.5) +
+  theme_bw() +
+  #facet_wrap(~Species) +
+  stat_smooth(method = "lm") +
+  ggtitle("M0 N = 112")
+
+```
+
+#6. Visualize module trait association as a heatmap
+
+```{r}
+
+heatmap_data = merge(module_eigengenes, traits, by = "row.names")
+heatmap_data = heatmap_data %>% 
+  column_to_rownames(var = "Row.names")
+
+colnames(heatmap_data)
+CorLevelPlot(heatmap_data,
+             x = names(heatmap_data)[13], 
+             y = names(heatmap_data)[1:12],
+             col = c("red", "pink","white", "pink", "red"),
+             main = "SEX")
+
+CorLevelPlot(heatmap_data,
+             x = names(heatmap_data)[14], 
+             y = names(heatmap_data)[1:12],
+             col = c("#ffeb3b","#fff280", "white", "#fff280", "#ffeb3b"),
+             main = "SPECIES")
+
+CorLevelPlot(heatmap_data,
+             x = names(heatmap_data)[15], 
+             y = names(heatmap_data)[1:12],
+             col = c("#004b8d","skyblue", "white", "skyblue", "#004b8d" ),
+             main = "TISSUES")
+
+CorLevelPlot(heatmap_data,
+             x = names(heatmap_data)[13:15], 
+             y = names(heatmap_data)[1:12],
+             col = c("blue1", "skyblue", "white", "pink", "red" ))
+
+###Modules in red/blue are significantly associated with one of the sex/species over the other
+colnames(heatmap_data)
+
+```
+
+#7. Gene significance vs. module membership plots - intramodular hub genes
+##A. Species-biased modules
+###I. Yellow (M10) module
+```{r}
+# Map genes to modules
+module.gene.mapping = bwnet_df %>% column_to_rownames(var = "V1")
+
+# YELLOW MODULE
+
+# Get genes in the yellow module
+yellow_module = module.gene.mapping %>% 
+  filter(V2 == "yellow") %>% 
+  rownames()
+
+# Get module membership values for genes in yellow module (M10)
+# Note: module.mem.measure is transposed, so rows represent module names and columns represent gene names
+
+mem_yellow = as.data.frame(t(module.mem.measure[2,yellow_module]))
+gs_yellow = as.data.frame(abs(gene.sig.cor[yellow_module, 1]))
+
+# Combine membership and gene significance data
+yelow_gs_meme = cbind(mem_yellow, gs_yellow)
+
+## Create a new column to categorize genes as "hub" or "non-hub"
+yelow_gs_meme$category = with(yelow_gs_meme, ifelse(MEyellow>0.9 & `abs(gene.sig.cor[yellow_module, 1])`>0.9, "hub genes", "non-hub"))
+
+
+#####Gene significance vs module membership plot
+ggplot(yelow_gs_meme, aes(x=yelow_gs_meme$MEyellow, y=yelow_gs_meme$`abs(gene.sig.cor[yellow_module, 1])`, colour = yelow_gs_meme$category)) +
+  geom_point(alpha = 0.6, show.legend = FALSE)+
+  coord_cartesian(ylim = c(0, 1))+
+  coord_cartesian(xlim = c(0, 1))+
+  geom_hline(yintercept = 0.9, colour = "red")+
+  geom_vline(xintercept = 0.9, colour = "red")+
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)))+
+  scale_x_continuous(expand = expansion(mult = c(0, 0.1)))+
+  ggtitle("Gene Significance vs Module membership for M10")
+
+```
+
+
+###II. Black (M4) module
+```{r}
+# Map genes to modules
+module.gene.mapping = bwnet_df %>% column_to_rownames(var = "V1")
+
+# BLACK MODULE
+
+# Get genes in the black module
+black_module = module.gene.mapping %>% 
+  filter(V2 == "black") %>% 
+  rownames()
+
+# Get module membership values for genes in yellow module (M10)
+# Note: module.mem.measure is transposed, so rows represent module names and columns represent gene names
+
+mem_black = as.data.frame(t(module.mem.measure[8,black_module]))
+gs_black = as.data.frame(abs(gene.sig.cor[black_module, 1]))
+
+# Combine membership and gene significance data
+black_gs_meme = cbind(mem_black, gs_black)
+
+## Create a new column to categorize genes as "hub" or "non-hub"
+black_gs_meme$category = with(black_gs_meme, ifelse(MEblack>0.9 & `abs(gene.sig.cor[black_module, 1])`>0.9, "hub genes", "non-hub"))
+
+
+#####Gene significance vs module membership plot
+ggplot(black_gs_meme, aes(x=black_gs_meme$MEblack, y=black_gs_meme$`abs(gene.sig.cor[black_module, 1])`, colour = black_gs_meme$category)) +
+  geom_point(alpha = 0.6, show.legend = FALSE)+
+  coord_cartesian(ylim = c(0, 1))+
+  coord_cartesian(xlim = c(0, 1))+
+  geom_hline(yintercept = 0.9, colour = "red")+
+  geom_vline(xintercept = 0.9, colour = "red")+
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)))+
+  scale_x_continuous(expand = expansion(mult = c(0, 0.1)))+
+  ggtitle("Gene Significance vs Module membership for Black")
+
+```
+
+
+
+#8. Venn Diagrams
+Visualize the overlap between species-biased hub genes (from WGCNA) and species-biased genes (from DESeq2)
+
+```{r}
+crexclat_res <- read.csv("../3-Output/crexclat_genes.csv")
+
+cre_biased = subset(crexclat_res, crexclat_res$crexclat == 1) %>% select("X")
+clat_biased = subset(crexclat_res, crexclat_res$crexclat == -1) %>% select("X")
+
+############
+#YELLOW(M10)
+############
+
+##Overlap with Yellow (M10) genes
+M10_hubgenes = subset(yelow_gs_meme, yelow_gs_meme$category=="hub genes") %>% row.names()
+M10_allgenes  = yelow_gs_meme %>% row.names()
+M10_clat_overlap = clat_biased %>% filter(X %in% M10_hubgenes) #as M10 has Clat-biased genes only
+
+##Venndiagram
+#NOTE: RUN THE VENNDIAGRAM CODE IN CONSOLE
+
+# Create a Venn diagram without saving to a file
+# temp <- venn.diagram(
+#   list("Clat_biased" = clat_biased, 
+#        "M10 hub genes" = M10_hubgenes, 
+#        "M10 all genes" = M10_allgenes),
+#   filename = NULL
+# )
+# 
+# # Draw a triple Venn diagram with specified parameters
+# temp = draw.triple.venn(979, 3339, 271, 952, 271, 271, 271, fileName = NULL)
+# 
+# 
+# # Save the Venn diagram as a PDF
+# pdf(file = "../3-Output/DEGvsHubgenes_M10.pdf")
+# grid.draw(temp)
+# dev.off()  # Close the PDF device
+
+#NOTE: if it doesn't work in code chunk, try clearing devices (below) then re-reun in code chunk or console
+# while (!is.null(dev.list())) {
+#      dev.off()
+#    }
+
+# Check if any device is open before closing it
+# if (dev.cur() > 1) {
+#   dev.off()  # Close the PDF device if it is open
+# } else {
+#   message("No graphics device is currently open.")
+# }
+
+###########
+#BLACK(M4)
+###########
+
+##Overlap with Black (M4) genes
+M4_hubgenes = subset(black_gs_meme, black_gs_meme$category=="hub genes") %>% row.names()
+M4_allgenes  = black_gs_meme %>% row.names()
+M4_cre_overlap = cre_biased %>% filter(X %in% M4_hubgenes) #as M4 has Cre-biased genes only
+
+##Venndiagram
+#NOTE: RUN THE VENNDIAGRAM CODE IN CONSOLE
+
+# Create a Venn diagram without saving to a file
+# temp <- venn.diagram(
+#   list("Cre_biased" = cre_biased$X, 
+#        "M4 hub genes" = M4_hubgenes, 
+#        "M4 all genes" = M4_allgenes),
+#   filename = NULL
+# )
+# 
+# # Save the Venn diagram as a PDF
+# pdf(file = "../3-Output/DEGvsHubgenes_M4.pdf")
+# grid.draw(temp)
+# dev.off()  # Close the PDF device
+
+```
+
+
+
+#9. Trends associated with effective number of codons (ENC) and dn/ds
+##A. Preparing data to filter for genes with correct gene names along with enc, KA and Ks values
+
+```{r}
+# Read data from text files
+remanei_gene_names = read.table("../1-Input/remanei_gene_names.txt", fill = T)
+latens_gene_names = read.table("../1-Input/latens_gene_names.txt", fill = T)
+ka_ks_enc_data = read.table("../1-Input/FitMG94_dN_dS_ENC_values_all_orthologs_remanei_PX506_latens_PX534.txt", header = T)
+
+# Check the structure data
+View(ka_ks_enc_data) #14764 genes
+View(remanei_gene_names) #15276 genes
+View(latens_gene_names) #18195 genes
+
+#######################################################
+# Filter ENC data for genes with matching Remanei names
+ortho_enc_data <- ka_ks_enc_data %>%
+  filter(Remanei_Gene %in% remanei_gene_names$V1) 
+
+# Filter Remanei gene names based on the filtered ENC data
+remanei_filtered_names <- remanei_gene_names %>%
+  filter(V1 %in% ortho_enc_data$Remanei_Gene) 
+
+# Combine the filtered ENC data with corresponding Remanei names
+ortho_enc_data <- cbind(ortho_enc_data, remanei_filtered_names)
+nrow(ortho_enc_data) #11456 genes
+
+
+#######################################################
+# Filter ENC data for genes with matching Latens names
+ortho_enc_data_2 <- ka_ks_enc_data %>%
+  filter(Latens_Gene %in% latens_gene_names$V1) %>%
+  arrange(Latens_Gene)
+
+# Filter Latens gene names based on the filtered ENC data
+latens_filtered_names <- latens_gene_names %>%
+  filter(V1 %in% ortho_enc_data_2$Latens_Gene)%>%
+  arrange(V1)
+
+# Combine the filtered ENC data with corresponding Latens names
+ortho_enc_data_2 <- cbind(ortho_enc_data_2, latens_filtered_names)
+nrow(ortho_enc_data_2) #12859 genes
+
+#NOTE: the orthologous data differs in the total number of genes with enc data as some genes called enc data are not in  cre/clat gene name file 
+
+#######################################################
+# Filter ENC data to retain common orthologs
+
+# Sort ortho_enc_data by Latens gene names
+ortho_enc_data = ortho_enc_data %>% 
+  arrange(Latens_Gene)
+
+# Filter orthologous data based on common Latens names
+ortho_enc_clat = ortho_enc_data_2[ortho_enc_data_2$Latens_Gene %in% ortho_enc_data$Latens_Gene, ]
+ 
+ortho_enc_cre = ortho_enc_data[ortho_enc_data$Latens_Gene %in% ortho_enc_data_2$Latens_Gene, ]
+
+# Check the number of genes in both filtered data sets
+nrow(ortho_enc_cre) #10585 genes
+nrow(ortho_enc_clat)# 10585 genes
+
+# View the filtered data
+View(ortho_enc_clat)
+View(ortho_enc_cre)
+
+# Combining specific columns to retain gene names, dn/ds and enc values
+
+ortholog_enc_kaks_data = cbind(ortho_enc_cre, ortho_enc_clat[, 7:10])
+names(ortholog_enc_kaks_data)[11:14] = c("clat1", "clat2", "clat3", "clat4") 
+# Save the data
+
+# Uncomment to write the results to text files
+# write.table(ortho_enc_cre, file = "../3-Output/ortho_enc_crenames.txt",
+#             row.names = FALSE, col.names = FALSE, quote = FALSE)
+# 
+# write.table(ortho_enc_clat, file = "../3-Output/ortho_enc_clatnames.txt",
+#             row.names = FALSE, col.names = FALSE, quote = FALSE)
+
+# write.table(ortholog_enc_kaks_data, file = "../3-Output/ortholog_enc_kaks_data.txt",
+#             row.names = FALSE, col.names = FALSE, quote = FALSE)
+```
+
+##B. Filter ENC data for diffferent modules
+```{r}
+#Using chromosomal and module information from section #4
+
+str(WGCNA_modulegenes_chr)
+
+
+# Use the previously made ka, ks, enc data
+str(ortholog_enc_kaks_data)
+
+#creaatign a new columns
+ortholog_enc_kaks_data$ortho_names = paste(ortholog_enc_kaks_data$V4, ortholog_enc_kaks_data$clat4, sep = "_")
+ortholog_enc_kaks_data = ortholog_enc_kaks_data %>%
+  arrange(ortholog_enc_kaks_data$ortho_names)
+
+WGCNA_modulegenes_chr = WGCNA_modulegenes_chr %>%
+  arrange(WGCNA_modulegenes_chr$C..remanei.Gene.name_C.latens.Gene.name)
+
+#filtering genes to get ka/ks and enc values
+ortholog_enc_kaks_data_wgcna = (ortholog_enc_kaks_data[ortholog_enc_kaks_data$ortho_names %in% WGCNA_modulegenes_chr$C..remanei.Gene.name_C.latens.Gene.name, ])
+WGCNA_modulegenes_filtered = (WGCNA_modulegenes_chr[WGCNA_modulegenes_chr$C..remanei.Gene.name_C.latens.Gene.name %in% ortholog_enc_kaks_data$ortho_names, ])
+cumulative_enc_wgcna = (cbind(ortholog_enc_kaks_data_wgcna, WGCNA_modulegenes_filtered))
+names(cumulative_enc_wgcna)[20] = "Module"
+# Uncomment to write the results to text files
+write.csv(cumulative_enc_wgcna, file = "../3-Output/cumulative_enc_wgcna.csv",
+            row.names = FALSE, col.names = FALSE, quote = FALSE)
+```
+
+##C. Basic statistics to compare different modules
+
+```{r}
+
+# Custom mode function
+get_mode <- function(v) {
+  uniq_v <- unique(v)
+  uniq_v[which.max(tabulate(match(v, uniq_v)))]
+}
+
+# Function to calculate average, median, and mode for each module
+calculate_module_averages <- function(data, module_column, module_names, dn_ds_column, enc_column) {
+  # Filter the data for the specific modules
+  module_data <- data %>%
+    filter(!!sym(module_column) %in% module_names)
+  
+  # Calculate average, median, and mode values for each module
+  averages <- module_data %>%
+    group_by(!!sym(module_column)) %>%
+    summarise(
+      average_dn_ds = mean(!!sym(dn_ds_column), na.rm = TRUE),
+      average_enc = mean(!!sym(enc_column), na.rm = TRUE),
+      .groups = 'drop'
+    )
+  
+  medians <- module_data %>%
+    group_by(!!sym(module_column)) %>%
+    summarise(
+      median_dn_ds = median(!!sym(dn_ds_column), na.rm = TRUE),
+      median_enc = median(!!sym(enc_column), na.rm = TRUE),
+      .groups = 'drop'
+    )
+  
+  modes <- module_data %>%
+    group_by(!!sym(module_column)) %>%
+    summarise(
+      mode_dn_ds = get_mode(!!sym(dn_ds_column)),
+      mode_enc = get_mode(!!sym(enc_column)),
+      .groups = 'drop'
+    )
+  
+  # Return results as a list
+  return(list(averages = averages, medians = medians, modes = modes))
+}
+
+# Assuming cumulative_enc_wgcna is your data frame and module_names is a vector of module names
+result <- calculate_module_averages(cumulative_enc_wgcna, "Module", module_names, "dN.dS", "ENC")
+
+# To view results
+print(result$averages)
+print(result$medians)
+print(result$modes)
+module_stast = as.data.frame(result)
+module_stast$module_num = c("M4", "M9", "M2", "M6", "M3", "M0", "M1", "M7", "M11", "M8", "M5", "M10")
+```
+
+##D. Visualize data across different modules
+###I. Violin Plot for dn/ds by modules
+```{r}
+# Violin Plot for dn/ds by modules
+ggplot(cumulative_enc_wgcna, aes(x = Module, y = dN.dS)) +
+  geom_violin(fill = "lightblue", color = "black") +
+  labs(title = "Violin plot of dn/ds by Modules",
+       x = "Modules",
+       y = "dn/ds") +
+  stat_summary(fun = mean, geom = "point", shape = 21, size = 2, 
+               fill = "white", color = "black", stroke = 1) +
+  scale_x_discrete(labels = c("black" = "M4","blue" = "M9", "brown" = "M2", "green" = "M6", "greenyellow" = "M3", "grey" = "M0", "magenta" = "M1", "pink" = "M7", "purple" = "M11", "red" = "M8", "turquoise" = "M5", "yellow" = "M10"))+
+  #ylim(0, 5)+
+  theme_minimal()
+
+```
+
+###II. Violin plot for ENC by modules
+```{r}
+ggplot(cumulative_enc_wgcna, aes(x = Module, y = cumulative_enc_wgcna$ENC)) +
+  geom_violin(fill = "lightblue", color = "black") +
+  labs(title = "Violin plot of ENC by Modules",
+       x = "Modules",
+       y = "ENC") +
+  stat_summary(fun = mean, geom = "point", shape = 21, size = 2, 
+               fill = "white", color = "black", stroke = 1) +
+  scale_x_discrete(labels = c("black" = "M4","blue" = "M9", "brown" = "M2", "green" = "M6", "greenyellow" = "M3", "grey" = "M0", "magenta" = "M1", "pink" = "M7", "purple" = "M11", "red" = "M8", "turquoise" = "M5", "yellow" = "M10"))+
+  #ylim(0, 5)+
+  theme_minimal()
+```
+
+###IV. ENC vs dn/ds
+```{r}
+
+ggplot(cumulative_enc_wgcna, aes(x = cumulative_enc_wgcna$dN.dS, 
+                                 y = cumulative_enc_wgcna$ENC, 
+                                 colour = cumulative_enc_wgcna$Module)) +
+  geom_point( size = 3) +  # Set point color and size
+  labs(title = "Scatter Plot of ENC vs dn/ds",
+       y = "ENC",
+       x = "dn/ds") +
+  theme_minimal()
+
+```
+

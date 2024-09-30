@@ -1,0 +1,655 @@
+---
+title: "3.WGCNA_WT"
+author: "Athmaja Viswanath"
+date: "2024-09-25"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#0. LOADING REQUIRED PACKAGES
+```{r loading packages}
+library(WGCNA)
+library(DESeq2)
+library(tidyverse)
+library(ggplot2)
+library(CorLevelPlot)
+library(gridExtra)
+
+theme_set(theme_classic())
+```
+
+#1.Data preparation 
+##A.Separating orthologous gene names so that they can be used to filter readcounts for each species.
+Total number of orthologous genes detected is 13785 genes across C. remanei and C. latens (gene list from Daniel)
+```{r}
+# Load ortholog data from a tab-separated file, ignoring comments
+orthologs = read.table("../1-Input/new_1to1_orthologgenelist.txt", sep="\t", header=TRUE, comment.char="#")
+
+# Extract the relevant columns into separate variables
+cre_ortho = orthologs[, 1]            # First column: cre_ortho, Cre names
+clat_ortho = orthologs[, 2]           # Second column: clat_ortho, Clat names
+cumulative_ortho = orthologs[, 3]     # Third column: cumulative_ortho, joint names
+
+# Display the first few rows of the data frames
+head(orthologs)
+head(cre_ortho)
+head(clat_ortho)
+
+##Number of genes 
+nrow(orthologs)
+length(cre_ortho)
+length(clat_ortho)
+```
+
+##B Filtering readcoutns for all samples to retain orthologous genes and combining to make one readcount file
+Total number of genes in C. remanei = 20091
+Total number of gene sin C. latens = 23073
+Total number of 1:! orthologous genes = 13785
+
+```{r}
+#########
+#C.remanei
+#########
+# Load counts for C. remanei
+cre_counts = read.table("../1-Input/C.remanei_cumulative.txt", sep="\t", header=TRUE, row.names=1, comment.char="#")
+# Look at the structure of data
+head(cre_counts)
+colnames(cre_counts)
+nrow(cre_counts) #20091
+# Filter to include only orthologs and exclude Whole animal samples
+cre_counts_ortho = cre_counts[cre_ortho, -c(13:15)] 
+# Update row names to match cumulative orthologs
+rownames(cre_counts_ortho) = cumulative_ortho 
+# Check the number of rows and column names
+nrow(cre_counts_ortho)
+colnames(cre_counts_ortho)
+
+#########
+#C.latens
+#########
+# Load counts for C. latens
+clat_counts = read.table("../1-Input/C.latens_cumulative.txt", sep="\t", header=TRUE, row.names=1, comment.char="#")
+# Look at the structure of data
+head(clat_counts)
+colnames(clat_counts)
+nrow(clat_counts) #23073
+# Filter to include only orthologs and exclude Whole animal samples
+clat_counts_ortho = clat_counts[clat_ortho, -c(13:15)]
+# Update row names to match cumulative orthologs
+rownames(clat_counts_ortho) = cumulative_ortho
+# Check the number of rows and column names for C. latens
+nrow(clat_counts_ortho)
+names(clat_counts_ortho)
+
+
+# Combine ortholog counts from C. remanei and C. latens
+wt_counts_orthologs = cbind(cre_counts_ortho, clat_counts_ortho)
+
+# Display current column names
+colnames(wt_counts_orthologs)
+
+# Clean up column names by removing the "X" prefix
+colnames(wt_counts_orthologs) = gsub("X", "", colnames(wt_counts_orthologs))
+colnames(wt_counts_orthologs)
+```
+
+##C.Quality control of samples and outlier detection
+
+```{r}
+gsg = goodSamplesGenes(t(wt_counts_orthologs))
+summary(gsg)
+
+# Display counts of good genes and samples
+table(gsg$goodGenes) #number of genes that are outliers = FALSE
+table(gsg$goodSamples)
+
+# Filter good genes and check dimensions
+counts_orthologs = wt_counts_orthologs[gsg$goodGenes, ]
+dim(counts_orthologs)
+
+# Heirarchical clustering to detect outliers
+
+htree = hclust(dist(t(counts_orthologs)), method = "average")
+plot(htree) 
+
+
+##PCA for detecting outliers
+pca = prcomp(t(counts_orthologs))
+pca_data = pca$x ####PCA calculations for all the samples
+
+#Calculating the variance explained by each principal component
+
+pca.var = pca$sdev^2
+pca.var.percent = round(pca.var/sum(pca.var)*100, digits = 2)
+
+pca_data = as.data.frame(pca_data)
+
+ggplot(pca_data, aes(PC1, PC2)) +
+  geom_point() +
+  geom_text(label = rownames(pca_data)) +
+  labs( x = paste0("PC1:", pca.var.percent[1], "%"), 
+        y = paste0("PC2:", pca.var.percent[2], "%"))
+```
+
+#2. Normalization of data usign DESeq2
+##A.Preparing coldata
+```{r}
+# Prepare the coldata data frame
+sample_name = colnames(wt_counts_orthologs)  # Get sample names
+tissue = substr(sample_name, 3, 3)            # Extract tissue type from sample names
+sex = substr(sample_name, 2, 2)               # Extract sex from sample names
+species = c(rep("Cre", 12), rep("Clat", 12))  # Assign species labels
+batch = rep(c(1, 2, 3),8)                # Assign batch numbers
+
+# Create the coldata data frame
+coldata = data.frame(sample_name, species, sex, tissue, batch)
+
+# Convert columns to factors for analysis
+coldata$species = factor(coldata$species)
+coldata$tissue = factor(coldata$tissue)
+coldata$sex = factor(coldata$sex)
+coldata$batch = factor(coldata$batch)
+
+# Display the coldata data frame
+coldata  # Note: WM samples are not included
+```
+
+```{r}
+# Prepare column data by setting the first column as row names
+coldata2 = coldata[, -1]  # Remove the first column
+rownames(coldata2) = coldata[, 1]  # Set the first column as row names
+
+# Check if all row names in coldata2 match the column names of counts_orthologs
+all(rownames(coldata2) %in% colnames(counts_orthologs))
+all(rownames(coldata2) == colnames(counts_orthologs))
+
+# Create DESeqDataSet from count matrix and column data
+dds = DESeqDataSetFromMatrix(
+  countData = counts_orthologs, 
+  colData = coldata2, 
+  design = ~1  # Not specifying a model
+)
+
+# Remove low count genes (at least 15 counts in 12 samples)
+dds75 = dds[rowSums(counts(dds) >= 15) >= 12, ]
+nrow(dds75)#11935 genes 
+
+# Check the number of genes retained
+nrow(dds75)  # Should output 11935 genes
+
+# Perform variance stabilization transformation
+dds_norm = vst(dds75)
+
+# Extract normalized counts for downstream analysis
+norma.counts = assay(dds_norm) %>% t()
+
+View(norma.counts)
+```
+
+#3. Network construction 
+##A. Selection soft threshold and powers
+```{r}
+##Choose a set of soft threshold powers
+
+power = c(c(1:10), seq(from = 12, to = 50, by = 2))
+
+sft = pickSoftThreshold(norma.counts,
+                        powerVector = power,
+                        networkType = "signed",
+                        verbose = 5)
+
+sft.data = sft$fitIndices ##we will use the R suqared value and mean connectivity , max R^2 and min mean connectivity
+
+###Visualization to pick the right power
+a1 = ggplot(sft.data, aes(Power, SFT.R.sq, label = Power)) +
+  geom_point() +
+  geom_text(nudge_y = 0.1) +
+  geom_hline(yintercept = 0.8, colour = "red") +
+  labs(x = "Power", y = "Scale free topology model fit, signed R^2") +
+  theme_classic()
+
+
+a2 = ggplot(sft.data, aes(Power, mean.k., label = Power)) +
+  geom_point() +
+  geom_text(nudge_y = 0.1) +
+  #geom_hline(yintercept = 0.8, colour = "red") +
+  labs(x = "Power", y = "Mean Connectivity") +
+  theme_classic()
+
+grid.arrange(a1, a2, nrow = 2)  ##we need higher R^2 and low mean connectivity
+
+
+###converting matric to numeric
+
+norma.counts[] = sapply(norma.counts, as.numeric)  ##different step than official tutorial
+
+soft_power = 18
+
+temp_cor = cor #to prevent WGCNa from using other cor function
+
+cor = WGCNA::cor
+
+```
+
+##B. Constructing the network
+
+```{r}
+###Memory estimate wrt blocksize
+
+##can take 20-30 mins to run
+
+bwnet = blockwiseModules(norma.counts, 
+                         maxBlockSize = 14000, ##depends on the ram of the system 4gb = 8-10k, 16gb = 20,000, 232gb = 30,000 
+                         TOMType = "signed", 
+                         power = soft_power,
+                         networkType = "signed",
+                         mergeCutHeight = 0.25,#threshold that we want to merge similar modules at
+                         numericLabels = FALSE, #want the module names to be colours if not, then say TRUE
+                         randomSeed = 1234,
+                         verbose = 3) 
+
+cor = temp_cor
+
+#2. Plotting dendrogram using network constructed
+
+# Plot the dendrogram with color assignments for both unmerged and merged modules
+plotDendroAndColors(bwnet$dendrograms[[1]], 
+                    cbind(bwnet$unmergedColors, bwnet$colors), 
+                    c("unmerged", "merged"), 
+                    dendroLabels = FALSE,
+                    oddGuide = TRUE,
+                    hang = 0.03, 
+                    guideHang = 0.05)
+
+
+dendo1 = plotDendroAndColors(bwnet$dendrograms[[1]], 
+                             cbind(bwnet$colors),
+                             c("merged"),
+                             dendroLabels = FALSE,
+                             oddGuide = TRUE, 
+                             hang = 0.03,
+                             guideHang = 0.05)
+
+```
+
+##C. Saving module eigen gene information
+```{r}
+# Extract module eigengenes from the WGCNA network and view them
+module_eigengenes = bwnet$MEs
+#View(module_eigengenes)
+
+# Save module eigengene values to a CSV file
+write.csv(module_eigengenes, file = "../3-Output/module eigengenes values_WT.csv")
+
+###CALCULATE AVERAGE ACROSS REPLICATES FOR EACH MODULE
+
+# Count the number of genes in each module
+table(bwnet$colors)
+
+# Retrieve names of the modules
+module_names = unique(bwnet$colors)
+
+# Create a data frame for module colors and add row names as a new column
+bwnet_df = as.data.frame(bwnet$colors)
+bwnet_df = rownames_to_column(bwnet_df)
+#View(bwnet_df)
+
+# Save the data frame of module genes to a text file
+write.table(bwnet_df, file = "../3-Output/WGCNA_modulegenes.txt",row.names = FALSE, col.names = FALSE, quote = FALSE)
+```
+
+#4. Identifying modules significantly associated with sex, tissue and species differences
+##A. Binarizing trait data
+```{r}
+###1.Sexes - has three categories - M, F, W
+#coldata2$sex = factor(coldata2$sex, levels = c("M", "F", "W")) #M will nto showup after binarised below
+
+sex.out = binarizeCategoricalColumns(coldata2$sex,
+                                     includePairwise = TRUE,
+                                     includeLevelVsAll = FALSE)
+
+row.names(sex.out) = row.names(coldata2) #need to change rownames when binarizing categorical variables
+
+
+###2. Species
+# species = coldata2 %>%
+#   mutate(species_binary = ifelse(grepl("Cre", species), 1, 0)) %>% #merges M & W into 0s
+#   select(5)
+
+species.factor <- factor(coldata2$species,
+                         levels = c('Clat','Cre','H1','H2')) #changing the reference level
+species = binarizeCategoricalVariable(coldata2$species,
+                                      includePairwise = TRUE,
+                                      includeLevelVsAll = FALSE) ##o is the reference category
+row.names(species) = row.names(coldata2) #need to change rownames when binarizing categorical variables
+
+###3. TISSUES
+
+tissues = binarizeCategoricalVariable(coldata2$tissue,
+                                      includePairwise = TRUE,
+                                      includeLevelVsAll = FALSE) ##o is the reference category
+row.names(tissues) = row.names(coldata2) #need to change rownames when binarizing categorical variables
+
+
+##Combining binarized data 
+
+traits = cbind(sex.out, species, tissues)
+
+##define number of genes and samples
+
+nSample = nrow(norma.counts)
+nGenes = ncol(norma.counts)
+```
+##B. Calculating corrrealtions between eingenes and traits
+
+```{r}
+# Calculate correlations between module eigengenes and various traits
+modules.trait.correlation.sp = cor(module_eigengenes, species, use = "p") # Correlation with species
+modules.trait.correlation.sex = cor(module_eigengenes, sex.out, use = "p") # Correlation with sex
+modules.trait.correlation.tissue = cor(module_eigengenes, tissues, use = "p") # Correlation with tissues
+
+# Overall correlation with all traits
+modules.trait.correlation = cor(module_eigengenes, traits, use = "p") 
+
+#Calculating p value for the correlations
+modules.trait.corr.pvals.sp = corPvalueStudent(modules.trait.correlation.sp, nSample)
+modules.trait.corr.pvals.sex = corPvalueStudent(modules.trait.correlation.sex, nSample)
+modules.trait.corr.pvals.tissue = corPvalueStudent(modules.trait.correlation.tissue, nSample)
+
+modules.trait.corr.pvals = corPvalueStudent(modules.trait.correlation, nSample)
+```
+
+
+##C. Extracting genes from each module
+```{r}
+# Map genes to modules
+module.gene.mapping = bwnet_df %>% column_to_rownames(var = "V1")
+
+# Define modules of interest
+module_names
+gene_lists = list()
+
+# Loop through each module and extract genes
+for (module in module_names) {
+  gene_lists[[module]] = module.gene.mapping %>%
+    filter(V2 == module) %>%
+    rownames()
+}
+
+# Access genes using gene_lists$green or gene_lists$brown
+
+```
+
+#5. Calculating module membership
+
+```{r}
+module.mem.measure = cor(module_eigengenes, norma.counts, use = "p")
+
+modules.mem.measure.pval = corPvalueStudent(module.mem.measure, nSample)
+
+module.mem.measure = as.data.frame(module.mem.measure) #need to be transposed
+
+modules.mem.measure.pval[1:5, 1:5] # depending on the p value , we can identify whihc genes have sig values for membership meaning can be hub genes
+# 
+# View(t(modules.mem.measure.pval))
+# View(t(module.mem.measure))
+```
+
+#6. Identifying important genes that are different across "SPECIES"
+##A. Calculating gene significance associated with difference in species
+we use this measure, for yellow and black to make figures in the next section and 4.Figures_WGCNA_WT.Rmd
+```{r}
+# Calculate correlation between normalized counts and species for all genes
+gene.sig.cor = cor(norma.counts, species, use = "p")
+gene.sig.cor.pval = corPvalueStudent(gene.sig.cor, nSample)
+
+# Convert correlation results to a data frame
+gene.sig.cor = as.data.frame(gene.sig.cor)
+#view(gene.sig.cor)
+
+# Identify top genes significantly associated with the species trait
+gs.sig.sp = gene.sig.cor.pval %>%
+  as.data.frame() %>%
+  arrange(Cre.vs.Clat) %>% # Sort by p-value (lowest to highest)
+  filter(Cre.vs.Clat < 0.05) # Filter for significant genes
+
+# Get the number of significant genes and total genes
+num_sig_genes = nrow(gs.sig.sp)
+total_genes = nrow(gene.sig.cor)
+```
+
+##B. Identifying intramodular hub genes in Yellow (M10) and Black (M4) modules
+This is also plotted in 4A & 4B in the script 4.Figures_WGCNA_WT.Rmd
+```{r}
+####################
+#YELLOW MODULE (M10)
+####################
+
+# Get genes in the yellow module
+yellow_module = module.gene.mapping %>% 
+  filter(V2 == "yellow") %>% 
+  rownames()
+
+# Get module membership values for genes in yellow module (M10)
+# Note: module.mem.measure is transposed, so rows represent module names and columns represent gene names
+
+mem_yellow = as.data.frame(t(module.mem.measure[2,yellow_module]))
+gs_yellow = as.data.frame(abs(gene.sig.cor[yellow_module, 1]))
+
+# Combine membership and gene significance data
+yelow_gs_meme = cbind(mem_yellow, gs_yellow)
+
+## Create a new column to categorize genes as "hub" or "non-hub"
+yelow_gs_meme$category = with(yelow_gs_meme, ifelse(MEyellow>0.9 & `abs(gene.sig.cor[yellow_module, 1])`>0.9, "hub genes", "non-hub"))
+
+####Number of hubgenes in yellwo/M10 module
+table(yelow_gs_meme$category)
+
+#Saving hub and non-hub gene lists
+write.table(yelow_gs_meme, file = "../3-Output/yellow_gs_mem.txt", row.names = TRUE, col.names = TRUE, quote = FALSE)
+
+
+#####Gene significance vs module membership plot
+ggplot(yelow_gs_meme, aes(x=yelow_gs_meme$MEyellow, y=yelow_gs_meme$`abs(gene.sig.cor[yellow_module, 1])`, colour = yelow_gs_meme$category)) +
+  geom_point(alpha = 0.6, show.legend = FALSE)+
+  coord_cartesian(ylim = c(0, 1))+
+  coord_cartesian(xlim = c(0, 1))+
+  geom_hline(yintercept = 0.9, colour = "red")+
+  geom_vline(xintercept = 0.9, colour = "red")+
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)))+
+  scale_x_continuous(expand = expansion(mult = c(0, 0.1)))+
+  ggtitle("Gene Significance vs Module membership for M10")
+
+
+###################
+# BLACK MODULE (M4)
+###################
+
+# Get genes in the black module
+black_module = module.gene.mapping %>% 
+  filter(V2 == "black") %>% 
+  rownames()
+
+# Get module membership values for genes in yellow module (M10)
+# Note: module.mem.measure is transposed, so rows represent module names and columns represent gene names
+
+mem_black = as.data.frame(t(module.mem.measure[8,black_module]))
+gs_black = as.data.frame(abs(gene.sig.cor[black_module, 1]))
+
+# Combine membership and gene significance data
+black_gs_meme = cbind(mem_black, gs_black)
+
+## Create a new column to categorize genes as "hub" or "non-hub"
+black_gs_meme$category = with(black_gs_meme, ifelse(MEblack>0.9 & `abs(gene.sig.cor[black_module, 1])`>0.9, "hub genes", "non-hub"))
+
+####Number of hubgenes in yellwo/M10 module
+table(black_gs_meme$category)
+
+#Saving hub and non-hub gene lists
+write.table(black_gs_meme, file = "../3-Output/black_gs_mem.txt", row.names = TRUE, col.names = TRUE, quote = FALSE)
+
+#####Gene significance vs module membership plot
+ggplot(black_gs_meme, aes(x=black_gs_meme$MEblack, y=black_gs_meme$`abs(gene.sig.cor[black_module, 1])`, colour = black_gs_meme$category)) +
+  geom_point(alpha = 0.6, show.legend = FALSE)+
+  coord_cartesian(ylim = c(0, 1))+
+  coord_cartesian(xlim = c(0, 1))+
+  geom_hline(yintercept = 0.9, colour = "red")+
+  geom_vline(xintercept = 0.9, colour = "red")+
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)))+
+  scale_x_continuous(expand = expansion(mult = c(0, 0.1)))+
+  ggtitle("Gene Significance vs Module membership for M4")
+
+```
+
+##C. Getting genelists for species-biased hub-genes for gprofiler
+###I. Getting hub genes from Yellow (M10 module)
+```{r}
+# Read gene names from text files
+remanei_gene_names = read.table("../1-Input/remanei_gene_names.txt", fill = T)
+latens_gene_names = read.table("../1-Input/latens_gene_names.txt", fill = T)
+
+# Check the structure of yellow module data
+str(yelow_gs_meme)
+
+# Extract hub genes and separate their names
+yellow_genes = subset(yelow_gs_meme, yelow_gs_meme$category=="hub genes") %>% 
+  rownames_to_column() %>% 
+  separate(rowname, sep = 23, into = c("Crenames", "Clatnames"))
+
+# Further separate Clatnames and remove the random column
+yellow_genes = separate(yellow_genes, Clatnames, sep = 1, into = c("random", "Clatnames"))[,-2]
+
+# Get corresponding names from remanei and latens gene lists
+yellow_genes_cre = subset(remanei_gene_names, remanei_gene_names$V4 %in% yellow_genes$Crenames)[,2]
+yellow_genes_clat = subset(latens_gene_names, latens_gene_names$V4 %in% yellow_genes$Clatnames)[,2]
+
+# Get the number of yellow genes in the cre dataset
+length(yellow_genes_cre)
+length(yellow_genes_clat)
+
+# Uncomment to write the results to text files
+# write.table(yellow_genes_cre, file = "../3-Output/M10_yellow_crehubgenes.txt",
+#             row.names = FALSE, col.names = FALSE, quote = FALSE)
+# 
+# write.table(yellow_genes_clat, file = "../3-Output/M10_yellow_clathubgenes.txt",
+#             row.names = FALSE, col.names = FALSE, quote = FALSE)
+```
+
+###II. Getting hub genes from Black (M4 module)
+```{r}
+# Read gene names from text files
+remanei_gene_names = read.table("../1-Input/remanei_gene_names.txt", fill = T)
+latens_gene_names = read.table("../1-Input/latens_gene_names.txt", fill = T)
+
+# Check the structure of yellow module data
+str(black_gs_meme)
+
+# Extract hub genes and separate their names
+black_genes = subset(black_gs_meme, black_gs_meme$category=="hub genes") %>% 
+  rownames_to_column() %>% 
+  separate(rowname, sep = 23, into = c("Crenames", "Clatnames"))
+
+# Further separate Clatnames and remove the random column
+black_genes = separate(black_genes, Clatnames, sep = 1, into = c("random", "Clatnames"))[,-2]
+
+# Get corresponding names from remanei and latens gene lists
+black_genes_cre = subset(remanei_gene_names, remanei_gene_names$V4 %in% black_genes$Crenames)[,2]
+black_genes_clat = subset(latens_gene_names, latens_gene_names$V4 %in% black_genes$Clatnames)[,2]
+
+# Get the number of black genes in the cre dataset
+length(black_genes_cre)
+length(black_genes_clat)
+
+# Uncomment to write the results to text files
+# write.table(black_genes_cre, file = "../3-Output/M4_black_crehubgenes.txt",
+#             row.names = FALSE, col.names = FALSE, quote = FALSE)
+# 
+# write.table(black_genes_clat, file = "../3-Output/M4_black_clathubgenes.txt",
+#             row.names = FALSE, col.names = FALSE, quote = FALSE)
+```
+
+##D. Overlap between hub genes in Yellow (M10) and Black (M4) modules and species-biased genes (from DESeq2)
+
+```{r}
+crexclat_res <- read.csv("../3-Output/crexclat_genes.csv")
+
+cre_biased = subset(crexclat_res, crexclat_res$crexclat == 1) %>% select("X")
+clat_biased = subset(crexclat_res, crexclat_res$crexclat == -1) %>% select("X")
+
+##Overlap with Yellow (M10) genes
+M10_hubgenes = subset(yelow_gs_meme, yelow_gs_meme$category=="hub genes") %>% row.names()
+M10_allgenes  = yelow_gs_meme %>% row.names()
+M10_clat_overlap = clat_biased %>% filter(X %in% M10_hubgenes) #as M10 has Clat-biased genes only
+
+
+##Overlap with Black (M4) genes
+M4_hubgenes = subset(black_gs_meme, black_gs_meme$category=="hub genes") %>% row.names()
+M4_allgenes  = black_gs_meme %>% row.names()
+M4_cre_overlap = cre_biased %>% filter(X %in% M4_hubgenes) #as M4 has Cre-biased genes only
+
+
+
+
+
+```
+
+
+#7.Identifying important genes that are different across "SEXES"
+##A. Calculating gene significance associated with difference in sex
+
+```{r}
+# Calculate correlation between normalized counts and sex for all genes
+
+gene.sig.cor.sex = cor(norma.counts, sex.out, use = "p")
+gene.sig.cor.pval.sex = corPvalueStudent(gene.sig.cor.sex, nSample)
+
+# Convert correlation results to a data frame
+gene.sig.cor.sex = as.data.frame(gene.sig.cor.sex)
+view(gene.sig.cor.sex)
+
+# Identify top genes significantly associated with the sex trait
+gs.sig.sex = gene.sig.cor.pval.sex %>%
+  as.data.frame() %>%
+  arrange(data.M.vs.F) %>% ##from lowest to highest p-value
+  filter(data.M.vs.F < 0.05)
+
+# Get the number of significant genes and total genes
+nrow(gs.sig.sex)
+nrow(gene.sig.cor.sex)
+
+```
+
+##B. Identifying intramodular hub genes in sex-biased modules
+##C. Getting genelists for overlapping sex-biased hub-genes for gprofiler
+##D. Overlap between hub genes in modules and sex-biased genes (from DESeq2)
+#8. Identifying important genes that are different across "TISSUES"
+##A. Calculating gene significance associated with difference in tissues
+```{r}
+# Calculate correlation between normalized counts and tissues for all genes
+
+gene.sig.cor.ts = cor(norma.counts, tissues, use = "p")
+gene.sig.cor.pval.ts = corPvalueStudent(gene.sig.cor.ts, nSample)
+
+# Convert correlation results to a data frame
+gene.sig.cor.ts = as.data.frame(gene.sig.cor.ts)
+view(gene.sig.cor.ts)
+
+# Identify top genes significantly associated with the sex trait
+gs.sig.ts = gene.sig.cor.pval.ts %>%
+  as.data.frame() %>%
+  arrange(S.vs.G) %>% ##from lowest to highest p-value
+  filter(S.vs.G < 0.05)
+
+# Get the number of significant genes and total genes
+nrow(gs.sig.ts)
+nrow(gene.sig.cor.ts)
+
+```
+
+##B. Identifying intramodular hub genes in tissue-biased modules
+##C. Getting genelists for overlapping tissue-biased hub-genes for gprofiler
+##D. Overlap between hub genes in modules and tissue-biased genes (from DESeq2)
+

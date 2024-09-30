@@ -371,3 +371,84 @@ UpSet(m3[top_combinations],
 
 
 
+
+#3. Trends associated with effective number of codons (ENC) and dn/ds
+##A. Preparing data to filter for genes with correct gene names along with enc, KA and Ks values
+
+```{r}
+# Read data from text files
+remanei_gene_names = read.table("../1-Input/remanei_gene_names.txt", fill = T)
+latens_gene_names = read.table("../1-Input/latens_gene_names.txt", fill = T)
+ka_ks_enc_data = read.table("../1-Input/FitMG94_dN_dS_ENC_values_all_orthologs_remanei_PX506_latens_PX534.txt", header = T)
+
+# Check the structure data
+View(ka_ks_enc_data) #14764 genes
+View(remanei_gene_names) #15276 genes
+View(latens_gene_names) #18195 genes
+
+#######################################################
+# Filter ENC data for genes with matching Remanei names
+ortho_enc_data <- ka_ks_enc_data %>%
+  filter(Remanei_Gene %in% remanei_gene_names$V1) 
+
+# Filter Remanei gene names based on the filtered ENC data
+remanei_filtered_names <- remanei_gene_names %>%
+  filter(V1 %in% ortho_enc_data$Remanei_Gene) 
+
+# Combine the filtered ENC data with corresponding Remanei names
+ortho_enc_data <- cbind(ortho_enc_data, remanei_filtered_names)
+nrow(ortho_enc_data) #11456 genes
+
+
+#######################################################
+# Filter ENC data for genes with matching Latens names
+ortho_enc_data_2 <- ka_ks_enc_data %>%
+  filter(Latens_Gene %in% latens_gene_names$V1) %>%
+  arrange(Latens_Gene)
+
+# Filter Latens gene names based on the filtered ENC data
+latens_filtered_names <- latens_gene_names %>%
+  filter(V1 %in% ortho_enc_data_2$Latens_Gene)%>%
+  arrange(V1)
+
+# Combine the filtered ENC data with corresponding Latens names
+ortho_enc_data_2 <- cbind(ortho_enc_data_2, latens_filtered_names)
+nrow(ortho_enc_data_2) #12859 genes
+
+#NOTE: the orthologous data differs in the total number of genes with enc data as some genes called enc data are not in  cre/clat gene name file 
+
+#######################################################
+# Filter ENC data to retain common orthologs
+
+# Sort ortho_enc_data by Latens gene names
+ortho_enc_data = ortho_enc_data %>% 
+  arrange(Latens_Gene)
+
+# Filter orthologous data based on common Latens names
+ortho_enc_clat = ortho_enc_data_2[ortho_enc_data_2$Latens_Gene %in% ortho_enc_data$Latens_Gene, ]
+ 
+ortho_enc_cre = ortho_enc_data[ortho_enc_data$Latens_Gene %in% ortho_enc_data_2$Latens_Gene, ]
+
+# Check the number of genes in both filtered data sets
+nrow(ortho_enc_cre) #10585 genes
+nrow(ortho_enc_clat)# 10585 genes
+
+# View the filtered data
+View(ortho_enc_clat)
+View(ortho_enc_cre)
+
+# Combining specific columns to retain gene names, dn/ds and enc values
+
+ortholog_enc_kaks_data = cbind(ortho_enc_cre, ortho_enc_clat[, 7:10])
+names(ortholog_enc_kaks_data)[11:14] = c("clat1", "clat2", "clat3", "clat4") 
+# Save the data
+
+# Uncomment to write the results to text files
+# write.table(ortho_enc_cre, file = "../3-Output/ortho_enc_crenames.txt",
+#              row.names = FALSE, col.names = TRUE, quote = FALSE)
+# write.table(ortho_enc_clat, file = "../3-Output/ortho_enc_clatnames.txt",
+#              row.names = FALSE, col.names = TRUE, quote = FALSE)
+# 
+# write.table(ortholog_enc_kaks_data, file = "../3-Output/ortholog_enc_kaks_data.txt",
+#              row.names = FALSE, col.names = TRUE, quote = FALSE)
+```

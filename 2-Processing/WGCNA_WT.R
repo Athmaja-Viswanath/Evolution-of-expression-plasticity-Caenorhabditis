@@ -445,7 +445,7 @@ modules.mem.measure.pval = corPvalueStudent(module.mem.measure, nSample)
 
 module.mem.measure = as.data.frame(module.mem.measure) #need to be transposed
 
-modules.mem.measure.pval[1:5, 1:5] # depending on the p valu , we can identify whihc genes have sig values for membership meaning can be hub genes
+modules.mem.measure.pval[1:5, 1:5] # depending on the p value , we can identify whihc genes have sig values for membership meaning can be hub genes
 # 
 # View(t(modules.mem.measure.pval))
 # View(t(module.mem.measure))
@@ -573,6 +573,9 @@ pdf(file="Results/Plots/Part 2/DEGvsHubgenes_M10.pdf")
   grid.draw(temp)
 dev.off()
 
+pdf(file = "3-Output/DEGvsHubgenes_M10.pdf")
+grid.draw(temp)
+dev.off()
 ##############################################################################################################
 ####getting files for cytoscape##############################
 

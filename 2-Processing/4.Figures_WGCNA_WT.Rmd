@@ -609,13 +609,12 @@ names(ortholog_enc_kaks_data)[11:14] = c("clat1", "clat2", "clat3", "clat4")
 
 # Uncomment to write the results to text files
 # write.table(ortho_enc_cre, file = "../3-Output/ortho_enc_crenames.txt",
-#             row.names = FALSE, col.names = FALSE, quote = FALSE)
-# 
+#              row.names = FALSE, col.names = TRUE, quote = FALSE)
 # write.table(ortho_enc_clat, file = "../3-Output/ortho_enc_clatnames.txt",
-#             row.names = FALSE, col.names = FALSE, quote = FALSE)
-
+#              row.names = FALSE, col.names = TRUE, quote = FALSE)
+# 
 # write.table(ortholog_enc_kaks_data, file = "../3-Output/ortholog_enc_kaks_data.txt",
-#             row.names = FALSE, col.names = FALSE, quote = FALSE)
+#              row.names = FALSE, col.names = TRUE, quote = FALSE)
 ```
 
 ##B. Filter ENC data for diffferent modules
@@ -628,7 +627,7 @@ str(WGCNA_modulegenes_chr)
 # Use the previously made ka, ks, enc data
 str(ortholog_enc_kaks_data)
 
-#creaatign a new columns
+#creatign a new columns
 ortholog_enc_kaks_data$ortho_names = paste(ortholog_enc_kaks_data$V4, ortholog_enc_kaks_data$clat4, sep = "_")
 ortholog_enc_kaks_data = ortholog_enc_kaks_data %>%
   arrange(ortholog_enc_kaks_data$ortho_names)

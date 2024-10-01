@@ -10,6 +10,7 @@ This Rmarkdwon file contains all the plots used to visualize differentially expr
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+
 #0. Loading required packages and files
 ```{r}
 # Load required libraries
@@ -31,9 +32,8 @@ gxs_res = read.csv("../3-Output/gonadxsoma_genes.csv") #Saving the data under th
 mxf_res = read.csv("../3-Output/mxf_genes.csv") #Saving the data under the same name as from analysis
 ```
 
-#1. PART I - Visualizing differentially expression genes 
-##A. FIGURE 1A-VISUALIZING SPECIES-BIASED GENES
-
+#1. Visualizing differentially expression genes 
+##A. FIGURE 1A-Visualizing species-biased genes
 ```{r}
 sp_genes_count = data.frame(gene_category = c("Conserved", "Conserved", "DEG","DEG"),
                             genes_count = c(6865, 0, 3339, 3224), #creating a proxy for conserved deg cetagory
@@ -61,7 +61,7 @@ ggplot(sp_genes_count, aes(x = sp_genes_count$gene_category, y = sp_genes_count$
 
 ```
 
-##B. FIGURE 1B-VISUALIZING SPECIES-BIASED GENES ON CHROMOSOMES
+##B. FIGURE 1B-Visualizing species-biased genes ON CHROMOSOMES
 
 ###Getting chromosomal information for all the different orthologous genes
 ```{r}
@@ -99,7 +99,7 @@ write.table(orthologs_chr, file = "../3-Output/orthologs_chr.txt", sep = "\t",qu
 
 ```
 
-##I. Integrating chromosomal data with species-biased genes 
+###I. Integrating chromosomal data with species-biased genes 
 
 ```{r}
 ##Read species-biased genes information (this data was generated from 1.DGEAnalysis.Rmd and stored in 3-Output)
@@ -165,7 +165,7 @@ ggplot(spgenes_freq) +
 
 ```
 
-##II. Integrating chromosmal data with tissue-biased genes 
+###II. Integrating chromosmal data with tissue-biased genes 
 
 ```{r}
 ##Read species-biased genes information (this data was generated from 1.DGEAnalysis.Rmd and stored in 3-Output)
@@ -230,7 +230,7 @@ ggplot(gsgenes_freq) +
 
 ```
 
-##III. Integrating chromosmal data with sex-biased genes 
+###III. Integrating chromosmal data with sex-biased genes 
 
 
 ```{r}
@@ -374,7 +374,6 @@ UpSet(m3[top_combinations],
 
 #3. Trends associated with effective number of codons (ENC) and dn/ds
 ##A. Preparing data to filter for genes with correct gene names along with enc, KA and Ks values
-
 ```{r}
 # Read data from text files
 remanei_gene_names = read.table("../1-Input/remanei_gene_names.txt", fill = T)
@@ -452,3 +451,137 @@ names(ortholog_enc_kaks_data)[11:14] = c("clat1", "clat2", "clat3", "clat4")
 # write.table(ortholog_enc_kaks_data, file = "../3-Output/ortholog_enc_kaks_data.txt",
 #              row.names = FALSE, col.names = TRUE, quote = FALSE)
 ```
+
+###I. Filtering for species-biased genes
+```{r}
+head(crexclat_res_chr)
+head(ortholog_enc_kaks_data)
+#creating a new column
+ortholog_enc_kaks_data$ortho_names = paste(ortholog_enc_kaks_data$V4, ortholog_enc_kaks_data$clat4, sep = "_")
+ortholog_enc_kaks_data = ortholog_enc_kaks_data %>%
+  arrange(ortholog_enc_kaks_data$ortho_names)
+
+crexclat_res_chr_a = crexclat_res_chr %>%
+  arrange(crexclat_res_chr$C..remanei.Gene.name_C.latens.Gene.name)
+
+#filtering genes to get ka/ks and enc values
+ortholog_enc_kaks_data_deseq = (ortholog_enc_kaks_data[ortholog_enc_kaks_data$ortho_names %in% crexclat_res_chr_a$C..remanei.Gene.name_C.latens.Gene.name, ])
+
+nrow(ortholog_enc_kaks_data_deseq)
+
+crexclat_res_chr_filtered = (crexclat_res_chr_a[crexclat_res_chr_a$C..remanei.Gene.name_C.latens.Gene.name %in% ortholog_enc_kaks_data_deseq$ortho_names, ])
+nrow(crexclat_res_chr_filtered)
+
+
+cumulative_enc_deseq2 = (cbind(ortholog_enc_kaks_data_deseq, crexclat_res_chr_filtered))
+names(cumulative_enc_deseq2)
+
+
+# Uncomment to write the results to text files
+write.csv(cumulative_enc_deseq2, file = "../3-Output/cumulative_enc_deseq.csv",
+            row.names = FALSE, col.names = FALSE, quote = FALSE)
+```
+
+##B. Basic statistics to compare different species-biased genes
+
+```{r}
+
+# Custom mode function
+get_mode <- function(v) {
+  uniq_v <- unique(v)
+  uniq_v[which.max(tabulate(match(v, uniq_v)))]
+}
+
+# Function to calculate average, median, and mode for each module
+calculate_averages <- function(data, sp_column, sp_names, dn_ds_column, enc_column) {
+  # Filter the data for the specific modules
+  module_data <- data %>%
+    filter(!!sym(sp_column) %in% sp_names)
+  
+  # Calculate average, median, and mode values for each module
+  averages <- module_data %>%
+    group_by(!!sym(sp_column)) %>%
+    summarise(
+      average_dn_ds = mean(!!sym(dn_ds_column), na.rm = TRUE),
+      average_enc = mean(!!sym(enc_column), na.rm = TRUE),
+      .groups = 'drop'
+    )
+  
+  medians <- module_data %>%
+    group_by(!!sym(sp_column)) %>%
+    summarise(
+      median_dn_ds = median(!!sym(dn_ds_column), na.rm = TRUE),
+      median_enc = median(!!sym(enc_column), na.rm = TRUE),
+      .groups = 'drop'
+    )
+  
+  modes <- module_data %>%
+    group_by(!!sym(sp_column)) %>%
+    summarise(
+      mode_dn_ds = get_mode(!!sym(dn_ds_column)),
+      mode_enc = get_mode(!!sym(enc_column)),
+      .groups = 'drop'
+    )
+  
+  # Return results as a list
+  return(list(averages = averages, medians = medians, modes = modes))
+}
+
+# Assuming cumulative_enc_wgcna is your data frame and module_names is a vector of module names
+result_deseq2 <- calculate_module_averages(cumulative_enc_deseq2, "crexclat", c(-1, 0, 1), "dN.dS", "ENC")
+
+# To view results
+print(result_deseq2$averages)
+print(result_deseq2$medians)
+print(result_deseq2$modes)
+
+#Save results
+crexclat_stats = as.data.frame(result_deseq2)
+
+```
+
+##C. Visualize data across different species-biased genes
+###I. Violin Plot for dn/ds by species-bias
+```{r}
+# Violin Plot for dn/ds by modules
+ggplot(cumulative_enc_deseq2, aes(x = as.character(crexclat), y = dN.dS)) +
+  geom_violin(fill = "lightblue", color = "black") +
+  labs(title = "Violin plot of dn/ds by species-bias",
+       x = "Species-bias",
+       y = "dn/ds") +
+  stat_summary(fun = mean, geom = "point", shape = 21, size = 2, 
+               fill = "white", color = "black", stroke = 1) +
+  scale_x_discrete(labels = c("-1" = "C.latens-biased", "0" = "Conserved", "1" = "C. remanei-biased"))+
+  #ylim(0, 15)+
+  theme_minimal()
+
+```
+
+###II. Violin plot for ENC by species-bias
+```{r}
+ggplot(cumulative_enc_deseq2, aes(x = as.character(crexclat), y = ENC)) +
+  geom_violin(fill = "lightblue", color = "black") +
+  labs(title = "Violin plot of ENC by Species-bias",
+       x = "Species-bias",
+       y = "ENC") +
+  stat_summary(fun = mean, geom = "point", shape = 21, size = 2, 
+               fill = "white", color = "black", stroke = 1) +
+  scale_x_discrete(labels = c("-1" = "C.latens-biased", "0" = "Conserved", "1" = "C. remanei-biased"))+
+  ylim(0, 80)+
+  theme_minimal()
+```
+
+###IV. ENC vs dn/ds
+```{r}
+
+ggplot(cumulative_enc_deseq2, aes(x = cumulative_enc_deseq2$dN.dS, 
+                                 y = cumulative_enc_deseq2$ENC, 
+                                 colour = as.character(cumulative_enc_deseq2$crexclat))) +
+  geom_point( size = 3) +  # Set point color and size
+  labs(title = "Scatter Plot of ENC vs dn/ds",
+       y = "ENC",
+       x = "dn/ds") +
+  theme_minimal()
+
+```
+

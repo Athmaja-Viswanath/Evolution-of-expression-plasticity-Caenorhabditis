@@ -1,0 +1,444 @@
+---
+title: "WGCNA_Cre_nonortho"
+author: "Athmaja Viswanath"
+date: "2024-11-11"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+#0. LOADING REQUIRED PACKAGES
+```{r loading packages}
+library(WGCNA)
+library(DESeq2)
+library(tidyverse)
+library(ggplot2)
+library(CorLevelPlot)
+library(gridExtra)
+
+theme_set(theme_classic())
+```
+
+#1.Data preparation 
+##A.Separating orthologous gene names so that they can be used to filter readcounts for each species.
+Total number of orthologous genes detected is 13785 genes across C. remanei and C. latens (gene list from Daniel)
+```{r}
+# Load ortholog data from a tab-separated file, ignoring comments
+orthologs = read.table("1-Input/new_1to1_orthologgenelist.txt", sep="\t", header=TRUE, comment.char="#")
+
+# Extract the relevant columns into separate variables
+cre_ortho = orthologs[, 1]            # First column: cre_ortho, Cre names
+clat_ortho = orthologs[, 2]           # Second column: clat_ortho, Clat names
+cumulative_ortho = orthologs[, 3]     # Third column: cumulative_ortho, joint names
+
+# Display the first few rows of the data frames
+head(orthologs)
+head(cre_ortho)
+head(clat_ortho)
+
+##Number of genes 
+nrow(orthologs)
+length(cre_ortho)
+length(clat_ortho)
+```
+
+##B. Read in and filter data to retain non-orthologous genes
+```{r}
+# Read in the C. remanei count data
+cre_allcounts <- read.table("1-Input/C.remanei_cumulative.txt", sep="\t", header=TRUE, row.names=1, comment.char = "#")
+
+# Add row names as a column
+cre_allcounts <- rownames_to_column(cre_allcounts)
+
+# Define "%notin%" operator to negate "%in%" 
+"%notin%" <- Negate("%in%")
+
+# Remove rows from cre_allcounts where rownames match orthologs' C. remanei Gene names
+cre_allcounts <- cre_allcounts[cre_allcounts$rowname %notin% orthologs$C..remanei.Gene.name, ]
+
+
+
+# Check the number of rows after filtering
+nrow(cre_allcounts)
+
+# Remove rownames and set them as a separate column
+cre_allcounts <- remove_rownames(cre_allcounts)
+cre_allcounts <- column_to_rownames(cre_allcounts, var = "rowname")
+
+# Drop columns 13 to 15 (assuming these are not needed), removing all WM samples
+cre_allcounts <- cre_allcounts[ ,-c(13:15)]
+
+# Clean up column names by removing the "X" from the start of column names
+colnames(cre_allcounts) <- gsub("X", "", colnames(cre_allcounts))
+
+# View the cleaned column names
+colnames(cre_allcounts)
+
+```
+
+##C. Quality Control and Detect Outliers
+```{r}
+# Run goodSamplesGenes function to check for good samples and genes
+gsg_cre <- goodSamplesGenes(t(cre_allcounts))
+summary(gsg_cre)
+
+# Check if all genes and samples are good (no outliers)
+gsg_cre$allOK  # TRUE means no outliers
+
+# Table of good genes and good samples
+table(gsg_cre$goodGenes)  # Shows number of good genes
+table(gsg_cre$goodSamples)  # Shows number of good samples
+
+# Filter out bad genes
+cre_allcounts <- cre_allcounts[gsg_cre$goodGenes == TRUE, ]
+nrow(cre_allcounts)  # Check the number of remaining genes
+
+### Hierarchical Clustering to Detect Outliers
+
+# Perform hierarchical clustering using average linkage
+htree_cre <- hclust(dist(t(cre_allcounts)), method = "average")
+plot(htree_cre)  # Visualize the dendrogram
+
+### PCA for Detecting Outliers
+
+# Perform PCA on the transposed data
+pca_cre <- prcomp(t(cre_allcounts))
+
+# Extract PCA component data
+pca_data_cre <- pca_cre$x
+
+# Calculate the variance explained by each principal component
+pca_var_cre <- pca_cre$sdev^2
+pca_var_percent_cre <- round(pca_var_cre / sum(pca_var_cre) * 100, 2)
+
+# Convert PCA data to data frame for plotting
+pca_data_cre <- as.data.frame(pca_data_cre)
+
+# Plot PCA to visualize samples
+ggplot(pca_data_cre, aes(PC1, PC2)) +
+  geom_point() +
+  geom_text(aes(label = rownames(pca_data_cre))) +  # Add labels to points
+  labs(x = paste0("PC1: ", pca_var_percent_cre[1], "%"), 
+       y = paste0("PC2: ", pca_var_percent_cre[2], "%"))
+
+```
+
+#2. Normalization of data using DESeq2
+##A. Preparing the coldata
+```{r}
+# Extract sample information from column names
+sample_name_cre <- colnames(cre_allcounts)
+tissue_cre <- substr(sample_name_cre, 3, 3)  # Extract tissue information (3rd character)
+sex_cre <- substr(sample_name_cre, 2, 2)    # Extract sex information (2nd character)
+
+# Define the batch information (assuming 3 batches for 12 samples)
+batch_cre <- c(rep(c(1, 2 , 3), 4))
+
+# Create a data frame with sample information
+coldata_cre <- data.frame(sample_name_cre, sex_cre, tissue_cre, batch_cre)
+
+# View the coldata table
+View(coldata_cre)
+
+# View the first few rows of the counts data
+head(cre_allcounts)
+
+# Change column to rownames for coldata
+coldata_cre2 <- coldata_cre[, -1]  # Remove the first column
+rownames(coldata_cre2) <- coldata_cre[, 1]  # Set the first column as rownames
+
+# Ensure rownames of coldata match colnames of cre_allcounts
+all(rownames(coldata_cre2) %in% colnames(cre_allcounts))  # Check if all rownames are in colnames
+all(rownames(coldata_cre2) == colnames(cre_allcounts))  # Ensure they match exactly
+```
+
+##B. Normalization
+```{r}
+# Create DESeqDataSet without a specified design model (~1)
+dds_cre <- DESeqDataSetFromMatrix(countData = cre_allcounts, 
+                                   colData = coldata_cre2, 
+                                   design = ~1)
+
+# View the coldata structure
+View(coldata_cre2)
+
+# Remove low count genes (those with fewer than 15 counts in at least 6 samples)
+dds75_cre <- dds_cre[rowSums(counts(dds_cre) >= 15) >= 6, ]
+nrow(dds75_cre)  # Check number of remaining genes
+
+# Variance Stabilizing Transformation
+dds_norm_cre <- vst(dds75_cre)
+
+# Get normalized counts (transformed data for downstream analysis)
+norma_counts_cre <- assay(dds_norm_cre) %>%
+  t()  # Transpose the normalized counts for easier downstream use
+
+# View normalized counts if necessary
+View(norma_counts_cre)
+```
+
+#3. Network construction 
+##A. Selection soft threshold and powers
+```{r}
+# Choose a set of soft threshold powers
+power <- c(1:10, seq(from = 12, to = 50, by = 2))
+
+# Pick soft threshold for WGCNA
+sft_cre <- pickSoftThreshold(norma_counts_cre,
+                             powerVector = power,
+                             networkType = "signed",
+                             verbose = 5)
+
+# Extract fit indices (R^2 and mean connectivity)
+sft_data_cre <- sft_cre$fitIndices
+
+# Visualization to pick the optimal power
+a1 <- ggplot(sft_data_cre, aes(Power, SFT.R.sq, label = Power)) +
+  geom_point() +
+  geom_text(nudge_y = 0.1) +
+  geom_hline(yintercept = 0.8, colour = "red") +
+  labs(x = "Power", y = "Scale-free topology fit (R^2)") +
+  theme_classic()
+
+a2 <- ggplot(sft_data_cre, aes(Power, mean.k., label = Power)) +
+  geom_point() +
+  geom_text(nudge_y = 0.1) +
+  labs(x = "Power", y = "Mean Connectivity") +
+  theme_classic()
+
+grid.arrange(a1, a2, nrow = 2)  # Aim for higher R^2 and low mean connectivity
+
+
+# Convert matrix to numeric
+norma_counts_cre[] <- sapply(norma_counts_cre, as.numeric)  # Ensures numeric data
+
+# Set soft power based on visualization (e.g., 26 chosen)
+soft_power_cre <- 26
+
+# Save the original correlation function to restore later
+temp_cor <- cor
+cor <- WGCNA::cor  # Use WGCNA's correlation function
+
+```
+
+##B. Constructing the network
+
+```{r}
+# Memory estimate for blockwise module construction
+bwnet_cre <- blockwiseModules(norma_counts_cre, 
+                              maxBlockSize = 14000,  # Adjust based on system RAM
+                              TOMType = "signed",
+                              networkType = "signed",
+                              power = soft_power_cre,
+                              mergeCutHeight = 0.25,  # Threshold for merging similar modules
+                              numericLabels = FALSE,  # Use color labels for modules
+                              randomSeed = 1234,
+                              verbose = 3)
+
+# Restore original correlation function
+cor <- temp_cor
+
+#2. Plotting dendrogram using network constructed
+
+# Plot the dendrogram with color assignments for both unmerged and merged modules
+plotDendroAndColors(bwnet_cre$dendrograms[[1]], 
+                    cbind(bwnet_cre$unmergedColors, bwnet_cre$colors), 
+                    c("unmerged", "merged"), 
+                    dendroLabels = FALSE,
+                    oddGuide = TRUE,
+                    hang = 0.03, 
+                    guideHang = 0.05)
+
+
+dendo1 = plotDendroAndColors(bwnet_cre$dendrograms[[1]], 
+                             cbind(bwnet_cre$colors),
+                             c("merged"),
+                             dendroLabels = FALSE,
+                             oddGuide = TRUE, 
+                             hang = 0.03,
+                             guideHang = 0.05)
+
+```
+
+##C. Saving module eigen gene information
+```{r}
+# Extract module eigengenes
+module_eigengenes_cre <- bwnet_cre$MEs
+View(module_eigengenes_cre)
+
+# Save module eigengene values to a CSV file
+write.csv(module_eigengenes_cre, file = "3-Output/WGCNA/module eigengenes values_Cre.csv")
+
+###CALCULATE AVERAGE ACROSS REPLICATES FOR EACH MODULE
+
+# Count the number of genes in each module
+table(bwnet_cre$colors)
+
+# Retrieve names of the modules
+module_names_cre = unique(bwnet_cre$colors)
+
+# Create a data frame for module colors and add row names as a new column
+bwnet_df_cre = as.data.frame(bwnet_cre$colors)
+bwnet_df_cre = rownames_to_column(bwnet_df_cre)
+#View(bwnet_df_cre)
+
+# Save the data frame of module genes to a text file
+write.table(bwnet_df_cre, file = "../3-Output/WGCNA/WGCNA_modulegenes_Cre.txt",row.names = FALSE, col.names = FALSE, quote = FALSE)
+```
+
+
+#4. Identifying modules significantly associated with sex, tissue and species differences
+##A. Binarizing trait data
+```{r}
+###1.Sexes - has three categories - M, F, W
+#coldata2$sex = factor(coldata2$sex, levels = c("M", "F", "W")) #M will nto showup after binarised below
+
+# Binarizing the categorical variable 'sex'
+sex.out_cre <- binarizeCategoricalColumns(coldata_cre2$sex,
+                                          includePairwise = TRUE,  # To include pairwise comparisons (e.g., M vs F)
+                                          includeLevelVsAll = FALSE)  # Not including level vs all
+
+# Adjust row names after binarization to match the original dataset
+row.names(sex.out_cre) <- row.names(coldata_cre2)
+
+# 2. Tissues - Binarizing the categorical variable 'tissue' (o = reference category)
+tissues_cre <- binarizeCategoricalVariable(coldata_cre2$tissue,
+                                           includePairwise = TRUE,  # Include pairwise comparisons
+                                           includeLevelVsAll = FALSE)  # Exclude level vs all
+# Adjust row names for the tissue data
+row.names(tissues_cre) <- row.names(coldata_cre2)
+
+# Combining both traits (sex and tissue) into a single data frame
+traits_cre <- cbind(sex.out_cre, tissues_cre)
+
+# Define number of samples and genes
+nSample_cre <- nrow(norma_counts_cre)  # Number of samples
+nGenes_cre <- ncol(norma_counts_cre)   # Number of genes
+```
+
+##B. Calculating corrrealtions between eingenes and traits
+
+```{r}
+# 1. Correlation between module eigengenes and sex traits
+modules.trait.correlation.sex_cre <- cor(module_eigengenes_cre, sex.out_cre, use = "p")  # Pearson correlation between MEs and sex
+
+# 2. Correlation between module eigengenes and tissue traits
+modules.trait.correlation.tissue_cre <- cor(module_eigengenes_cre, tissues_cre, use = "p")  # Pearson correlation between MEs and tissues
+
+# 3. Correlation between module eigengenes and combined traits (sex + tissue)
+modules.trait.correlation_cre <- cor(module_eigengenes_cre, traits_cre, use = "p")  # Pearson correlation for all traits
+
+# 4. Calculate p-values for the correlations
+modules.trait.corr.pvals.sex_cre <- corPvalueStudent(modules.trait.correlation.sex_cre, nSample_cre)  # p-values for sex correlations
+modules.trait.corr.pvals.tissue_cre <- corPvalueStudent(modules.trait.correlation.tissue_cre, nSample_cre)  # p-values for tissue correlations
+
+# 5. Calculate p-values for the combined trait correlations
+modules.trait.corr.pvals_cre <- corPvalueStudent(modules.trait.correlation_cre, nSample_cre)  # p-values for all traits
+
+# View results (optional)
+# View(modules.trait.correlation.sex_cre)  # Correlation matrix for sex
+# View(modules.trait.correlation.tissue_cre)  # Correlation matrix for tissue
+# View(modules.trait.correlation_cre)  # Combined correlation matrix
+```
+
+##C. Extracting genes from each module
+```{r}
+# Map genes to modules
+module.gene.mapping_cre = bwnet_df_cre %>% column_to_rownames(var = "rowname")
+
+# Define modules of interest
+module_names_cre
+gene_lists_cre = list()
+
+# Loop through each module and extract genes
+for (module in module_names_cre) {
+  gene_lists_cre[[module]] = module.gene.mapping_cre %>%
+    filter(bwnet_cre$colors == module) %>%
+    rownames()
+}
+
+# Access genes using gene_lists$green or gene_lists$brown
+
+```
+
+#5. Calculating module membership
+
+```{r}
+### Identifying Intramodular Hub Genes Based on Module Membership
+
+# Calculate the correlation between module eigengenes and gene expression
+module_membership_cre = cor(module_eigengenes_cre, norma_counts_cre, use = "p")
+
+# Calculate the p-values for the correlations using Student's t-distribution
+module_membership_pvals_cre = corPvalueStudent(module_membership_cre, nSample_cre)
+
+module_membership_cre = as.data.frame(module_membership_cre) #need to be transposed
+
+# Display the first 5 rows and columns of the p-value matrix
+# This allows us to identify genes with significant module membership (p-values < 0.05)
+head(module_membership_pvals_cre, 5)
+module_membership_pvals_cre[1:5, 1:5]
+# View the full p-value matrix (transposed) to inspect module membership for all genes
+View(t(module_membership_pvals_cre))
+```
+
+#6.Identifying important genes that are different across "SEXES"
+##A. Calculating gene significance associated with difference in sex
+
+```{r}
+# Calculate correlation between normalized counts and sex for all genes
+
+gene.sig.cor_sex_cre = cor(norma_counts_cre, sex.out_cre, use = "p")
+gene.sig.cor.pval_sex_cre = corPvalueStudent(gene.sig.cor_sex_cre, nSample_cre)
+
+
+# Convert correlation results to a data frame
+gene.sig.cor.sex_cre = as.data.frame(gene.sig.cor_sex_cre)
+view(gene.sig.cor.sex_cre)
+
+# Identify top genes significantly associated with the sex trait
+gs.sig.sex_cre = gene.sig.cor.pval_sex_cre %>%
+  as.data.frame() %>%
+  arrange(data.M.vs.F) %>% ##from lowest to highest p-value
+  filter(data.M.vs.F < 0.05)
+
+# Get the number of significant genes and total genes
+nrow(gs.sig.sex_cre)
+nrow(gene.sig.cor.sex_cre)
+
+```
+
+##B. Identifying intramodular hub genes in sex-biased modules
+##C. Getting genelists for overlapping sex-biased hub-genes for gprofiler
+##D. Overlap between hub genes in modules and sex-biased genes (from DESeq2)
+#8. Identifying important genes that are different across "TISSUES"
+##A. Calculating gene significance associated with difference in tissues
+```{r}
+# Calculate correlation between normalized counts and tissues for all genes
+
+gene.sig.cor.ts_cre = cor(norma_counts_cre, tissues_cre, use = "p")
+gene.sig.cor.pval.ts_cre = corPvalueStudent(gene.sig.cor.ts_cre, nSample_cre)
+
+# Convert correlation results to a data frame
+gene.sig.cor.ts_cre = as.data.frame(gene.sig.cor.ts_cre)
+view(gene.sig.cor.ts_cre)
+
+# Identify top genes significantly associated with the sex trait
+gs.sig.ts_cre = gene.sig.cor.pval.ts_cre %>%
+  as.data.frame() %>%
+  arrange(S.vs.G) %>% ##from lowest to highest p-value
+  filter(S.vs.G < 0.05)
+
+# Get the number of significant genes and total genes
+nrow(gs.sig.ts_cre)
+nrow(gene.sig.cor.ts_cre)
+
+```
+
+##B. Identifying intramodular hub genes in tissue-biased modules
+##C. Getting genelists for overlapping tissue-biased hub-genes for gprofiler
+##D. Overlap between hub genes in modules and tissue-biased genes (from DESeq2)
+

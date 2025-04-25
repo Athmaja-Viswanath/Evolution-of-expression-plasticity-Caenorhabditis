@@ -47,7 +47,7 @@ length(clat_ortho)
 ##B Filtering readcoutns for all samples to retain orthologous genes and combining to make one readcount file
 Total number of genes in C. remanei = 20091
 Total number of gene sin C. latens = 23073
-Total number of 1:! orthologous genes = 13785
+Total number of 1:1 orthologous genes = 13785
 
 ```{r}
 #########
@@ -134,7 +134,7 @@ ggplot(pca_data, aes(PC1, PC2)) +
         y = paste0("PC2:", pca.var.percent[2], "%"))
 ```
 
-#2. Normalization of data usign DESeq2
+#2. Normalization of data using DESeq2
 ##A.Preparing coldata
 ```{r}
 # Prepare the coldata data frame
@@ -175,10 +175,10 @@ dds = DESeqDataSetFromMatrix(
 
 # Remove low count genes (at least 15 counts in 12 samples)
 dds75 = dds[rowSums(counts(dds) >= 15) >= 12, ]
-nrow(dds75)#11935 genes 
+nrow(dds75) # 11804genes 
 
 # Check the number of genes retained
-nrow(dds75)  # Should output 11935 genes
+nrow(dds75)  # Should output 11804 genes
 
 # Perform variance stabilization transformation
 dds_norm = vst(dds75)
@@ -186,7 +186,7 @@ dds_norm = vst(dds75)
 # Extract normalized counts for downstream analysis
 norma.counts = assay(dds_norm) %>% t()
 
-View(norma.counts)
+#View(norma.counts)
 ```
 
 #3. Network construction 
@@ -282,7 +282,7 @@ module_eigengenes = bwnet$MEs
 #View(module_eigengenes)
 
 # Save module eigengene values to a CSV file
-write.csv(module_eigengenes, file = "../3-Output/module eigengenes values_WT.csv")
+# write.csv(module_eigengenes, file = "../3-Output/module eigengenes values_WT.csv")
 
 ###CALCULATE AVERAGE ACROSS REPLICATES FOR EACH MODULE
 
@@ -298,7 +298,7 @@ bwnet_df = rownames_to_column(bwnet_df)
 #View(bwnet_df)
 
 # Save the data frame of module genes to a text file
-write.table(bwnet_df, file = "../3-Output/WGCNA_modulegenes.txt",row.names = FALSE, col.names = FALSE, quote = FALSE)
+# write.table(bwnet_df, file = "../3-Output/WGCNA_modulegenes.txt",row.names = FALSE, col.names = FALSE, quote = FALSE)
 ```
 
 #4. Identifying modules significantly associated with sex, tissue and species differences
@@ -343,7 +343,7 @@ traits = cbind(sex.out, species, tissues)
 nSample = nrow(norma.counts)
 nGenes = ncol(norma.counts)
 ```
-##B. Calculating corrrealtions between eingenes and traits
+##B. Calculating corrrealtions between eigengenes and traits
 
 ```{r}
 # Calculate correlations between module eigengenes and various traits
@@ -366,7 +366,7 @@ modules.trait.corr.pvals = corPvalueStudent(modules.trait.correlation, nSample)
 ##C. Extracting genes from each module
 ```{r}
 # Map genes to modules
-module.gene.mapping = bwnet_df %>% column_to_rownames(var = "V1")
+module.gene.mapping = bwnet_df %>% column_to_rownames(var = "rowname")
 
 # Define modules of interest
 module_names
@@ -375,7 +375,7 @@ gene_lists = list()
 # Loop through each module and extract genes
 for (module in module_names) {
   gene_lists[[module]] = module.gene.mapping %>%
-    filter(V2 == module) %>%
+    filter(module.gene.mapping$`bwnet$colors` == module) %>%
     rownames()
 }
 
@@ -396,6 +396,8 @@ modules.mem.measure.pval[1:5, 1:5] # depending on the p value , we can identify 
 # 
 # View(t(modules.mem.measure.pval))
 # View(t(module.mem.measure))
+
+##SAVE module.mem.measure!!
 ```
 
 #6. Identifying important genes that are different across "SPECIES"
@@ -430,7 +432,7 @@ This is also plotted in 4A & 4B in the script 4.Figures_WGCNA_WT.Rmd
 
 # Get genes in the yellow module
 yellow_module = module.gene.mapping %>% 
-  filter(V2 == "yellow") %>% 
+  filter(module.gene.mapping$`bwnet$colors` == "yellow") %>% 
   rownames()
 
 # Get module membership values for genes in yellow module (M10)
@@ -449,7 +451,7 @@ yelow_gs_meme$category = with(yelow_gs_meme, ifelse(MEyellow>0.9 & `abs(gene.sig
 table(yelow_gs_meme$category)
 
 #Saving hub and non-hub gene lists
-write.table(yelow_gs_meme, file = "../3-Output/yellow_gs_mem.txt", row.names = TRUE, col.names = TRUE, quote = FALSE)
+# write.table(yelow_gs_meme, file = "../3-Output/yellow_gs_mem.txt", row.names = TRUE, col.names = TRUE, quote = FALSE)
 
 
 #####Gene significance vs module membership plot
@@ -470,7 +472,7 @@ ggplot(yelow_gs_meme, aes(x=yelow_gs_meme$MEyellow, y=yelow_gs_meme$`abs(gene.si
 
 # Get genes in the black module
 black_module = module.gene.mapping %>% 
-  filter(V2 == "black") %>% 
+  filter(module.gene.mapping$`bwnet$colors` == "black") %>% 
   rownames()
 
 # Get module membership values for genes in yellow module (M10)
@@ -489,7 +491,7 @@ black_gs_meme$category = with(black_gs_meme, ifelse(MEblack>0.9 & `abs(gene.sig.
 table(black_gs_meme$category)
 
 #Saving hub and non-hub gene lists
-write.table(black_gs_meme, file = "../3-Output/black_gs_mem.txt", row.names = TRUE, col.names = TRUE, quote = FALSE)
+# write.table(black_gs_meme, file = "../3-Output/black_gs_mem.txt", row.names = TRUE, col.names = TRUE, quote = FALSE)
 
 #####Gene significance vs module membership plot
 ggplot(black_gs_meme, aes(x=black_gs_meme$MEblack, y=black_gs_meme$`abs(gene.sig.cor[black_module, 1])`, colour = black_gs_meme$category)) +
@@ -574,7 +576,7 @@ length(black_genes_clat)
 ##D. Overlap between hub genes in Yellow (M10) and Black (M4) modules and species-biased genes (from DESeq2)
 
 ```{r}
-crexclat_res <- read.csv("../3-Output/crexclat_genes.csv")
+crexclat_res <- read.csv("../3-Output/DEGAnalysis/crexclat_genes.csv")
 
 cre_biased = subset(crexclat_res, crexclat_res$crexclat == 1) %>% select("X")
 clat_biased = subset(crexclat_res, crexclat_res$crexclat == -1) %>% select("X")
@@ -589,10 +591,6 @@ M10_clat_overlap = clat_biased %>% filter(X %in% M10_hubgenes) #as M10 has Clat-
 M4_hubgenes = subset(black_gs_meme, black_gs_meme$category=="hub genes") %>% row.names()
 M4_allgenes  = black_gs_meme %>% row.names()
 M4_cre_overlap = cre_biased %>% filter(X %in% M4_hubgenes) #as M4 has Cre-biased genes only
-
-
-
-
 
 ```
 
@@ -623,8 +621,226 @@ nrow(gene.sig.cor.sex)
 ```
 
 ##B. Identifying intramodular hub genes in sex-biased modules
+###I. Brown (M2) module
+```{r}
+
+# Get genes in the brown (M2) module
+brown_module = module.gene.mapping %>% 
+  filter(bwnet$colors == "brown") %>% 
+  rownames()
+
+# Get module membership values for genes in brown module (M10)
+# Note: module.mem.measure is transposed, so rows represent module names and columns represent gene names
+
+mem_brown = as.data.frame(t(module.mem.measure[10,brown_module]))
+gs_brown = as.data.frame(abs(gene.sig.cor.sex[brown_module, 1]))
+
+# Combine membership and gene significance data
+brown_gs_meme = cbind(mem_brown, gs_brown)
+
+## Create a new column to categorize genes as "hub" or "non-hub"
+brown_gs_meme$category = with(brown_gs_meme, ifelse(MEbrown>0.9 & `abs(gene.sig.cor.sex[brown_module, 1])`>0.9, "hub genes", "non-hub"))
+
+table(brown_gs_meme$category)
+#####Gene significance vs module membership plot
+C7_I_a = ggplot(brown_gs_meme, aes(x=brown_gs_meme$MEbrown, y=brown_gs_meme$`abs(gene.sig.cor.sex[brown_module, 1])`, colour = brown_gs_meme$category)) +
+  geom_point(alpha = 0.6, show.legend = FALSE)+
+  coord_cartesian(ylim = c(0, 1))+
+  coord_cartesian(xlim = c(0, 1))+
+  geom_hline(yintercept = 0.9, colour = "red")+
+  geom_vline(xintercept = 0.9, colour = "red")+
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)))+
+  scale_x_continuous(expand = expansion(mult = c(0, 0.1)))+
+  labs(title = "Intramodular hub genes for M2 (Brown, Sex-biased)",
+       x = "Module Membership",
+       y = "Gene Significance") +
+  theme(
+    plot.title = element_text(size = 22, face = "bold", hjust = 0.5),
+    axis.title.y = element_text(size = 18, hjust = 0.5),
+    axis.title.x = element_text(size = 18),
+    axis.text.x = element_text(size = 16, face = "bold", colour = "black"),
+    axis.text.y = element_text(size = 16, color = "black")
+  )
+
+```
+
+###II. Pink (M7) module
+```{r}
+# Get genes in the pink (M7) module
+pink_module = module.gene.mapping %>% 
+  filter( bwnet$colors == "pink") %>% 
+  rownames()
+
+# Get module membership values for genes in pink module (M7)
+# Note: module.mem.measure is transposed, so rows represent module names and columns represent gene names
+
+mem_pink = as.data.frame(t(module.mem.measure[5,pink_module]))
+gs_pink = as.data.frame(abs(gene.sig.cor.sex[pink_module, 1]))
+
+# Combine membership and gene significance data
+pink_gs_meme = cbind(mem_pink, gs_pink)
+
+## Create a new column to categorize genes as "hub" or "non-hub"
+pink_gs_meme$category = with(pink_gs_meme, ifelse(MEpink>0.9 & `abs(gene.sig.cor.sex[pink_module, 1])`>0.9, "hub genes", "non-hub"))
+
+table(pink_gs_meme$category)
+#####Gene significance vs module membership plot
+C7_II_a = ggplot(pink_gs_meme, aes(x=pink_gs_meme$MEpink, y=pink_gs_meme$`abs(gene.sig.cor.sex[pink_module, 1])`, colour = pink_gs_meme$category)) +
+  geom_point(alpha = 0.6, show.legend = FALSE)+
+  coord_cartesian(ylim = c(0, 1))+
+  coord_cartesian(xlim = c(0, 1))+
+  geom_hline(yintercept = 0.9, colour = "red")+
+  geom_vline(xintercept = 0.9, colour = "red")+
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)))+
+  scale_x_continuous(expand = expansion(mult = c(0, 0.1)))+
+  labs(title = "Intramodular hub genes for M7 (Pink, Sex-biased)",
+       x = "Module Membership",
+       y = "Gene Significance") +
+  theme(
+    plot.title = element_text(size = 22, face = "bold", hjust = 0.5),
+    axis.title.y = element_text(size = 18, hjust = 0.5),
+    axis.title.x = element_text(size = 18),
+    axis.text.x = element_text(size = 16, face = "bold", colour = "black"),
+    axis.text.y = element_text(size = 16, color = "black")
+  )
+
+```
+
 ##C. Getting genelists for overlapping sex-biased hub-genes for gprofiler
-##D. Overlap between hub genes in modules and sex-biased genes (from DESeq2)
+###I. Getting hub genes from Brown (M2 module)
+```{r}
+# Read gene names from text files
+remanei_gene_names = read.table("../1-Input/remanei_gene_names.txt", fill = T)
+latens_gene_names = read.table("../1-Input/latens_gene_names.txt", fill = T)
+
+# Check the structure of yellow module data
+str(brown_gs_meme)
+
+# Extract hub genes and separate their names
+brown_genes = subset(brown_gs_meme, brown_gs_meme$category=="hub genes") %>% 
+  rownames_to_column() %>% 
+  separate(rowname, sep = 23, into = c("Crenames", "Clatnames"))
+
+# Further separate Clatnames and remove the random column
+brown_genes = separate(brown_genes, Clatnames, sep = 1, into = c("random", "Clatnames"))[,-2]
+
+# Get corresponding names from remanei and latens gene lists
+brown_genes_cre = subset(remanei_gene_names, remanei_gene_names$V4 %in% brown_genes$Crenames)[,2]
+brown_genes_clat = subset(latens_gene_names, latens_gene_names$V4 %in% brown_genes$Clatnames)[,2]
+
+# Get the number of yellow genes in the cre dataset
+length(brown_genes_cre)
+length(brown_genes_clat)
+
+# Uncomment to write the results to text files
+write.table(brown_genes_cre, file = "../3-Output/M2_brown_crehubgenes.txt",
+            row.names = FALSE, col.names = FALSE, quote = FALSE)
+
+write.table(brown_genes_clat, file = "../3-Output/M2_brown_clathubgenes.txt",
+            row.names = FALSE, col.names = FALSE, quote = FALSE)
+
+```
+
+###II. Getting hub genes from Pink (M7 module)
+```{r}
+# Read gene names from text files
+remanei_gene_names = read.table("../1-Input/remanei_gene_names.txt", fill = T)
+latens_gene_names = read.table("../1-Input/latens_gene_names.txt", fill = T)
+
+# Check the structure of yellow module data
+str(pink_gs_meme)
+
+# Extract hub genes and separate their names
+pink_genes = subset(pink_gs_meme, pink_gs_meme$category=="hub genes") %>% 
+  rownames_to_column() %>% 
+  separate(rowname, sep = 23, into = c("Crenames", "Clatnames"))
+
+# Further separate Clatnames and remove the random column
+pink_genes = separate(pink_genes, Clatnames, sep = 1, into = c("random", "Clatnames"))[,-2]
+
+# Get corresponding names from remanei and latens gene lists
+pink_genes_cre = subset(remanei_gene_names, remanei_gene_names$V4 %in% pink_genes$Crenames)[,2]
+pink_genes_clat = subset(latens_gene_names, latens_gene_names$V4 %in% pink_genes$Clatnames)[,2]
+
+# Get the number of yellow genes in the cre dataset
+length(pink_genes_cre)
+length(pink_genes_clat)
+
+# Uncomment to write the results to text files
+write.table(pink_genes_cre, file = "../3-Output/M7_pink_crehubgenes.txt",
+            row.names = FALSE, col.names = FALSE, quote = FALSE)
+
+write.table(pink_genes_clat, file = "../3-Output/M7_pink_clathubgenes.txt",
+            row.names = FALSE, col.names = FALSE, quote = FALSE)
+
+```
+
+##D. Visualize the overlap between sex-biased hub genes (from WGCNA) and sex-biased genes (from DESeq2)
+
+```{r}
+mxf_res <- read.csv("../3-Output/DEGAnalysis/mxf_genes.csv")
+
+male_biased = subset(mxf_res, mxf_res$mxf == 1) %>% select("X")
+female_biased = subset(mxf_res, mxf_res$mxf == -1) %>% select("X")
+
+############
+#BROWN (M2)
+############
+
+##Overlap with BROWN (M2) genes
+M2_hubgenes = subset(brown_gs_meme, brown_gs_meme$category=="hub genes") %>% row.names()
+M2_allgenes  = brown_gs_meme %>% row.names()
+M2_male_overlap = male_biased %>% filter(X %in% M2_hubgenes) #as M2 has Male-biased genes only
+nrow(M2_male_overlap)
+##Venndiagram
+#NOTE: RUN THE VENNDIAGRAM CODE IN CONSOLE
+
+# Create a Venn diagram without saving to a file
+temp <- venn.diagram(
+  list("Male_biased" = male_biased,
+       "M2 hub genes" = M2_hubgenes,
+       "M2 all genes" = M2_allgenes),
+  filename = NULL
+)
+
+# Save the Venn diagram as a PDF
+pdf(file = "3-Output/DEGvsHubgenes_M2_brown.pdf")
+grid.draw(temp)
+dev.off()  # Close the PDF device
+
+#NOTE: if it doesn't work in code chunk, try clearing devices (below) then re-reun in code chunk or console
+# while (!is.null(dev.list())) {
+#      dev.off()
+#    }
+
+###########
+#PINK (M7)
+###########
+
+  ##Overlap with Pink (M9) genes
+M7_hubgenes = subset(pink_gs_meme, pink_gs_meme$category=="hub genes") %>% row.names()
+M7_allgenes  = pink_gs_meme %>% row.names()
+M7_female_overlap = female_biased %>% filter(X %in% M7_hubgenes) #as M7 has Soma-biased genes only
+nrow(M7_female_overlap)
+##Venndiagram
+#NOTE: RUN THE VENNDIAGRAM CODE IN CONSOLE
+
+# Create a Venn diagram without saving to a file
+temp <- venn.diagram(
+  list("Female_biased" = female_biased,
+       "M7 hub genes" = M7_hubgenes,
+       "M7 all genes" = M7_allgenes),
+  filename = NULL
+)
+
+# Save the Venn diagram as a PDF
+pdf(file = "3-Output/DEGvsHubgenes_M7_pink.pdf")
+grid.draw(temp)
+dev.off()  # Close the PDF device
+
+```
+ 
+
 #8. Identifying important genes that are different across "TISSUES"
 ##A. Calculating gene significance associated with difference in tissues
 ```{r}
@@ -650,6 +866,232 @@ nrow(gene.sig.cor.ts)
 ```
 
 ##B. Identifying intramodular hub genes in tissue-biased modules
+###I. Magenta (M1) module
+```{r, warning=FALSE}
+# Map genes to modules
+module.gene.mapping = bwnet_df %>% column_to_rownames(var = "rowname")
+
+# Magenta (M1) module
+
+# Get genes in the magenta module
+magenta_module = module.gene.mapping %>% 
+  filter(bwnet$colors == "magenta") %>% 
+  rownames()
+
+# Get module membership values for genes in magenta module (M1)
+# Note: module.mem.measure is transposed, so rows represent module names and columns represent gene names
+
+mem_magenta = as.data.frame(t(module.mem.measure[11,magenta_module]))
+gs_magenta = as.data.frame(abs(gene.sig.cor.ts[magenta_module, 1]))
+
+# Combine membership and gene significance data
+magenta_gs_meme = cbind(mem_magenta, gs_magenta)
+
+## Create a new column to categorize genes as "hub" or "non-hub"
+magenta_gs_meme$category = with(magenta_gs_meme, ifelse(MEmagenta>0.9 & `abs(gene.sig.cor.ts[magenta_module, 1])`>0.9, "hub genes", "non-hub"))
+
+## Identifying number of genes
+table(magenta_gs_meme$category)
+#####Gene significance vs module membership plot
+B7_I_a = ggplot(magenta_gs_meme, aes(x=magenta_gs_meme$MEmagenta, y=magenta_gs_meme$`abs(gene.sig.cor.ts[magenta_module, 1])`, colour = magenta_gs_meme$category)) +
+  geom_point(alpha = 0.6, show.legend = FALSE)+
+  coord_cartesian(ylim = c(0, 1))+
+  coord_cartesian(xlim = c(0, 1))+
+  geom_hline(yintercept = 0.9, colour = "red")+
+  geom_vline(xintercept = 0.9, colour = "red")+
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)))+
+  scale_x_continuous(expand = expansion(mult = c(0, 0.1)))+
+  labs(title = "Intramodular hub genes for M1 (Magenta, Tissue-biased)",
+       x = "Module Membership",
+       y = "Gene Significance") +
+  theme(
+    plot.title = element_text(size = 22, face = "bold", hjust = 0.5),
+    axis.title.y = element_text(size = 18, hjust = 0.5),
+    axis.title.x = element_text(size = 18),
+    axis.text.x = element_text(size = 16, face = "bold", colour = "black"),
+    axis.text.y = element_text(size = 16, color = "black")
+  )
+
+```
+
+###II. Blue (M9) module
+```{r}
+# Blue (M9) module
+
+# Get genes in the blue module
+blue_module = module.gene.mapping %>% 
+  filter(bwnet$colors == "blue") %>% 
+  rownames()
+
+# Get module membership values for genes in blue module (M9)
+# Note: module.mem.measure is transposed, so rows represent module names and columns represent gene names
+
+mem_blue = as.data.frame(t(module.mem.measure[3,blue_module]))
+gs_blue = as.data.frame(abs(gene.sig.cor.ts[blue_module, 1]))
+
+# Combine membership and gene significance data
+blue_gs_meme = cbind(mem_blue, gs_blue)
+
+## Create a new column to categorize genes as "hub" or "non-hub"
+blue_gs_meme$category = with(blue_gs_meme, ifelse(MEblue>0.9 & `abs(gene.sig.cor.ts[blue_module, 1])`>0.9, "hub genes", "non-hub"))
+
+##Number of genes
+table(blue_gs_meme$category)
+
+#####Gene significance vs module membership plot
+B7_II_a = ggplot(blue_gs_meme, aes(x=blue_gs_meme$MEblue, y=blue_gs_meme$`abs(gene.sig.cor.ts[blue_module, 1])`, colour = blue_gs_meme$category)) +
+  geom_point(alpha = 0.6, show.legend = FALSE)+
+  coord_cartesian(ylim = c(0, 1))+
+  coord_cartesian(xlim = c(0, 1))+
+  geom_hline(yintercept = 0.9, colour = "red")+
+  geom_vline(xintercept = 0.9, colour = "red")+
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)))+
+  scale_x_continuous(expand = expansion(mult = c(0, 0.1)))+
+  labs(title = "Intramodular hub genes for M9 (Blue, Tissue-biased)",
+       x = "Module Membership",
+       y = "Gene Significance") +
+  theme(
+    plot.title = element_text(size = 22, face = "bold", hjust = 0.5),
+    axis.title.y = element_text(size = 18, hjust = 0.5),
+    axis.title.x = element_text(size = 18),
+    axis.text.x = element_text(size = 16, face = "bold", colour = "black"),
+    axis.text.y = element_text(size = 16, color = "black")
+  )
+
+```
 ##C. Getting genelists for overlapping tissue-biased hub-genes for gprofiler
-##D. Overlap between hub genes in modules and tissue-biased genes (from DESeq2)
+###I. Getting hub genes from Magenta (M1 module)
+```{r}
+# Read gene names from text files
+remanei_gene_names = read.table("../1-Input/remanei_gene_names.txt", fill = T)
+latens_gene_names = read.table("../1-Input/latens_gene_names.txt", fill = T)
+
+# Check the structure of yellow module data
+str(magenta_gs_meme)
+
+# Extract hub genes and separate their names
+magenta_genes = subset(magenta_gs_meme, magenta_gs_meme$category=="hub genes") %>% 
+  rownames_to_column() %>% 
+  separate(rowname, sep = 23, into = c("Crenames", "Clatnames"))
+
+# Further separate Clatnames and remove the random column
+magenta_genes = separate(magenta_genes, Clatnames, sep = 1, into = c("random", "Clatnames"))[,-2]
+
+# Get corresponding names from remanei and latens gene lists
+magenta_genes_cre = subset(remanei_gene_names, remanei_gene_names$V4 %in% magenta_genes$Crenames)[,2]
+magenta_genes_clat = subset(latens_gene_names, latens_gene_names$V4 %in% magenta_genes$Clatnames)[,2]
+
+# Get the number of yellow genes in the cre dataset
+length(magenta_genes_cre)
+length(magenta_genes_clat)
+
+# Uncomment to write the results to text files
+write.table(magenta_genes_cre, file = "../3-Output/M1_magenta_crehubgenes.txt",
+            row.names = FALSE, col.names = FALSE, quote = FALSE)
+
+write.table(magenta_genes_clat, file = "../3-Output/M1_magenta_clathubgenes.txt",
+            row.names = FALSE, col.names = FALSE, quote = FALSE)
+
+```
+
+###II. Getting hub genes from Blue (M9 module)
+```{r}
+# Read gene names from text files
+remanei_gene_names = read.table("../1-Input/remanei_gene_names.txt", fill = T)
+latens_gene_names = read.table("../1-Input/latens_gene_names.txt", fill = T)
+
+# Check the structure of yellow module data
+str(blue_gs_meme)
+
+# Extract hub genes and separate their names
+blue_genes = subset(blue_gs_meme, blue_gs_meme$category=="hub genes") %>% 
+  rownames_to_column() %>% 
+  separate(rowname, sep = 23, into = c("Crenames", "Clatnames"))
+
+# Further separate Clatnames and remove the random column
+blue_genes = separate(blue_genes, Clatnames, sep = 1, into = c("random", "Clatnames"))[,-2]
+
+# Get corresponding names from remanei and latens gene lists
+blue_genes_cre = subset(remanei_gene_names, remanei_gene_names$V4 %in% blue_genes$Crenames)[,2]
+blue_genes_clat = subset(latens_gene_names, latens_gene_names$V4 %in% blue_genes$Clatnames)[,2]
+
+# Get the number of yellow genes in the cre dataset
+length(blue_genes_cre)
+length(blue_genes_clat)
+
+# Uncomment to write the results to text files
+write.table(blue_genes_cre, file = "../3-Output/M9_blue_crehubgenes.txt",
+            row.names = FALSE, col.names = FALSE, quote = FALSE)
+
+write.table(blue_genes_clat, file = "../3-Output/M9_blue_clathubgenes.txt",
+            row.names = FALSE, col.names = FALSE, quote = FALSE)
+
+```
+
+
+##D. Visualize the overlap between tissue-biased hub genes (from WGCNA) and tissue-biased genes (from DESeq2)
+
+```{r}
+gxs_res <- read.csv("../3-Output/DEGAnalysis/gonadxsoma_genes.csv")
+
+soma_biased = subset(gxs_res, gxs_res$gxs == 1) %>% select("X")
+gonad_biased = subset(gxs_res, gxs_res$gxs == -1) %>% select("X")
+
+############
+#MAGENTA (M1)
+############
+
+##Overlap with MAGENTA (M1) genes
+M1_hubgenes = subset(magenta_gs_meme, magenta_gs_meme$category=="hub genes") %>% row.names()
+M1_allgenes  = magenta_gs_meme %>% row.names()
+M1_gonad_overlap = gonad_biased %>% filter(X %in% M1_hubgenes) #as M1 has Gonad-biased genes only
+nrow(M1_gonad_overlap)
+##Venndiagram
+#NOTE: RUN THE VENNDIAGRAM CODE IN CONSOLE
+
+# Create a Venn diagram without saving to a file
+temp <- venn.diagram(
+  list("Gonad_biased" = gonad_biased,
+       "M1 hub genes" = M1_hubgenes,
+       "M1 all genes" = M1_allgenes),
+  filename = NULL
+)
+
+# Save the Venn diagram as a PDF
+pdf(file = "3-Output/DEGvsHubgenes_M1_magenta.pdf")
+grid.draw(temp)
+dev.off()  # Close the PDF device
+
+#NOTE: if it doesn't work in code chunk, try clearing devices (below) then re-reun in code chunk or console
+# while (!is.null(dev.list())) {
+#      dev.off()
+#    }
+
+###########
+#BLUE (M9)
+###########
+
+##Overlap with Black (M9) genes
+M9_hubgenes = subset(blue_gs_meme, blue_gs_meme$category=="hub genes") %>% row.names()
+M9_allgenes  = blue_gs_meme %>% row.names()
+M9_soma_overlap = soma_biased %>% filter(X %in% M9_hubgenes) #as M9 has Soma-biased genes only
+nrow(M9_soma_overlap)
+##Venndiagram
+#NOTE: RUN THE VENNDIAGRAM CODE IN CONSOLE
+
+# Create a Venn diagram without saving to a file
+temp <- venn.diagram(
+  list("Soma_biased" = soma_biased,
+       "M9 hub genes" = M9_hubgenes,
+       "M9 all genes" = M9_allgenes),
+  filename = NULL
+)
+
+# Save the Venn diagram as a PDF
+pdf(file = "3-Output/DEGvsHubgenes_M9_blue.pdf")
+grid.draw(temp)
+dev.off()  # Close the PDF device
+
+```
+
 

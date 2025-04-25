@@ -10,7 +10,6 @@ This Rmarkdwon file contains all the plots used to visualize differentially expr
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-
 #0. Loading required packages and files
 ```{r}
 # Load required libraries
@@ -20,20 +19,83 @@ library(tibble)
 library(ggstats)
 library(UpSetR)
 library(ComplexHeatmap)
+library(patchwork)
+library(ggridges)
+library(emmeans)
 
 
 # Reading in necessary files
 chrom_info <- read.table("../1-Input/Cremanie_genenames_and_chromosome.txt", fill = TRUE) #chromosomal information
 ##Read species-biased genes information (this data was generated from 1.DGEAnalysis.Rmd and stored in 3-Output)
-crexclat_res = read.csv("../3-Output/crexclat_genes.csv") #Saving the data under the same name as from analysis
+crexclat_res = read.csv("../3-Output/DEGAnalysis/crexclat_genes.csv") #Saving the data under the same name as from analysis
 ##Read species-biased genes information (this data was generated from 1.DGEAnalysis.Rmd and stored in 3-Output)
-gxs_res = read.csv("../3-Output/gonadxsoma_genes.csv") #Saving the data under the same name as from analysis
+gxs_res = read.csv("../3-Output/DEGAnalysis/gonadxsoma_genes.csv") #Saving the data under the same name as from analysis
 ##Read sex-biased genes information (this data was generated from 1.DGEAnalysis.Rmd and stored in 3-Output)
-mxf_res = read.csv("../3-Output/mxf_genes.csv") #Saving the data under the same name as from analysis
+mxf_res = read.csv("../3-Output/DEGAnalysis/mxf_genes.csv") #Saving the data under the same name as from analysis
+
+#for Cre - specific genes
+##Read species-biased genes information (this data was generated from 1.DGEAnalysis.Rmd and stored in 3-Output)
+gxs_res_cre = read.csv("../3-Output/gonadxsoma_genes_crespecificgenes.csv") #Saving the data under the same name as from analysis
+##Read sex-biased genes information (this data was generated from 1.DGEAnalysis.Rmd and stored in 3-Output)
+mxf_res_cre = read.csv("../3-Output/mxf_genes_crespecificgenes.csv") #Saving the data under the same name as from analysis
+
+#for Clat - specific genes
+##Read species-biased genes information (this data was generated from 1.DGEAnalysis.Rmd and stored in 3-Output)
+gxs_res_clat = read.csv("../3-Output/gonadxsoma_genes_clatspecificgenes.csv") #Saving the data under the same name as from analysis
+##Read sex-biased genes information (this data was generated from 1.DGEAnalysis.Rmd and stored in 3-Output)
+mxf_res_clat = read.csv("../3-Output/mxf_genes_clatspecificgenes.csv") #Saving the data under the same name as from analysis
+
+##FUNCTION TO CALCULATE FISHER'S EXACT TEST FOR ENRICHMENT (FROM SANTIAGO)
+# enrichment
+enrichment <- function(x, odds.ratio=FALSE){
+  pvals = oddratio = matrix(ncol=ncol(x), nrow=nrow(x))
+  if (nrow(x) == 2 & ncol(x) > 2){
+    for (i in 1:ncol(x)){
+      x1 = cbind(x[,i],rowSums(x[,-i]))
+      fet = fisher.test(x1)
+      pvals[1,i] = fet$p.value
+      oddratio[1,i] = fet$estimate
+      fet = fisher.test(x1[c(2,1),])
+      pvals[2,i] = fet$p.value
+      oddratio[2,i] = fet$estimate
+    }
+  }
+  if (nrow(x) > 2 & ncol(x) == 2){
+    for (i in 1:nrow(x)){
+      x1 = cbind(x[i,],colSums(x[-i,]))
+      fet = fisher.test(x1)
+      pvals[i,1] = fet$p.value
+      oddratio[i,1] = fet$estimate
+      fet = fisher.test(x1[c(2,1),])
+      pvals[i,2] = fet$p.value
+      oddratio[i,2] = fet$estimate
+    }
+  }
+  if (nrow(x) > 2 & ncol(x) > 2){
+    for (i in 1:nrow(x)){
+      for (j in 1:ncol(x)){
+        x1 = rbind(x[i,], colSums(x[-i,]))
+        x1 = cbind(x1[,j], rowSums(x1[,-j]))
+        fet = fisher.test(x1)
+        pvals[i,j] = fet$p.value
+        oddratio[i,j] = fet$estimate
+      }
+    }
+  }
+  if (odds.ratio)
+    return(oddratio)
+  else
+    return(pvals)
+}
 ```
 
+Figure labeling
+A1_I_a - Section "1", subsection "A", sub-subsection "I", first figure "a"
+
+C3_I_a - Section "3", subsection "C", sub-subsection "I", first figure "a"
+
 #1. Visualizing differentially expression genes 
-##A. FIGURE 1A-Visualizing species-biased genes
+##A. Visualizing species-biased genes
 ```{r}
 sp_genes_count = data.frame(gene_category = c("Conserved", "Conserved", "DEG","DEG"),
                             genes_count = c(6865, 0, 3339, 3224), #creating a proxy for conserved deg cetagory
@@ -61,9 +123,8 @@ ggplot(sp_genes_count, aes(x = sp_genes_count$gene_category, y = sp_genes_count$
 
 ```
 
-##B. FIGURE 1B-Visualizing species-biased genes ON CHROMOSOMES
-
-###Getting chromosomal information for all the different orthologous genes
+##B. Visualizing species-biased genes on chromosomes
+###I. Getting chromosomal information for all the different orthologous genes
 ```{r}
 # Read chromosomal information
 chrom_info <- read.table("../1-Input/Cremanie_genenames_and_chromosome.txt", fill = TRUE)
@@ -94,16 +155,15 @@ cat("Number of genes on chromosomes:", nrow(orthologs_chr), "\n")
 cat("Total number of orthologs:", nrow(orthologs), "\n")
 
 ##Saving results
-write.table(orthologs_chr, file = "../3-Output/orthologs_chr.txt", sep = "\t",quote = FALSE,
-           row.names = FALSE)
+# write.table(orthologs_chr, file = "../3-Output/orthologs_chr.txt", sep = "\t",quote = FALSE,
+#            row.names = FALSE)
 
 ```
 
-###I. Integrating chromosomal data with species-biased genes 
-
+###II. Integrating chromosomal data with species-biased genes 
 ```{r}
 ##Read species-biased genes information (this data was generated from 1.DGEAnalysis.Rmd and stored in 3-Output)
-crexclat_res = read.csv("../3-Output/crexclat_genes.csv") #Saving the data under the same name as from analysis
+crexclat_res = read.csv("../3-Output/DEGAnalysis/crexclat_genes.csv") #Saving the data under the same name as from analysis
 rownames(crexclat_res) = crexclat_res$X 
 crexclat_res = crexclat_res[, -1]
 head(crexclat_res)
@@ -130,10 +190,18 @@ View(spgenes_freq)
 spgenes_freq <- spgenes_freq %>% 
   filter(Var1 == "I" | Var1 == "II" | Var1 == "III" | Var1 == "IV" | Var1 == "V" | Var1 == "X")
 
+```
 
+###III. Plotting species-biased genes across chromsomes
+```{r}
 # Plot species-biased genes across chromosomes
 #higher in Cre = 1; higher in Clat= -1; conserved = 0
-ggplot(spgenes_freq, aes(x = Var1, y = Freq, fill = Var2)) +
+# Rename levels of Var2 directly in your data frame 
+spgenes_freq$Var2 <- factor(spgenes_freq$Var2, 
+                             levels = c("-1", "0", "1"),  # Old names
+                             labels = c("Higher is Clat", "Conserved", "Higher in Cre"))  # New names
+
+B1_III_a = ggplot(spgenes_freq, aes(x = Var1, y = Freq, fill = Var2)) +
   geom_bar(stat = "identity", position = "dodge") +
   labs(x = "", y = "Number of genes", title = "Species-biased genes") +
   theme(
@@ -150,26 +218,74 @@ ggplot(spgenes_freq, aes(x = Var1, y = Freq, fill = Var2)) +
 
 # Proportion of species-biased genes on chromosomes
 
-ggplot(spgenes_freq) +
+B1_III_b = ggplot(spgenes_freq) +
   aes(x = Var1, fill = Var2, weight = Freq) +
   geom_bar(position = "fill") +
   geom_text(stat = "prop", position = position_fill(vjust = 0.5)) +
-  scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks = seq(0, 1, 0.25))
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks = seq(0, 1, 0.25)) +
+  labs(x = "", y = "Count") +
+  theme(
+    axis.title.y = element_text(size = 20, hjust = 0.5),
+    axis.text.x = element_text(size = 26, face = "bold", colour = "black"),
+    axis.text.y = element_text(size = 15, color = "black"),
+    axis.title.x = element_text(size = 14)
+  )
 
 
-ggplot(spgenes_freq) +
+B1_III_c = ggplot(spgenes_freq) +
   aes(x = spgenes_freq$Var1, fill = spgenes_freq$Var2, weight = spgenes_freq$Freq, by = spgenes_freq$Var1) +
   geom_bar(position = "fill") +
   geom_text(stat = "prop", position = position_fill(.5))+
-  scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks=seq(0,1,0.25))
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks=seq(0,1,0.25)) +
+  labs(x = "", y = "Count") +
+  theme(
+    axis.title.y = element_text(size = 20, hjust = 0.5),
+    axis.text.x = element_text(size = 26, face = "bold", colour = "black"),
+    axis.text.y = element_text(size = 15, color = "black"),
+    axis.title.x = element_text(size = 14)
+  )
 
 ```
 
-###II. Integrating chromosmal data with tissue-biased genes 
+###IV. Odds Ratio enrichment plot across Autosomes and X-chromosome
+```{r}
+# Rename levels of Var2 directly in your data frame 
+crexclat_res_chr$crexclat <- factor(crexclat_res_chr$crexclat, 
+                             levels = c("-1", "0", "1"),  # Old names
+                             labels = c("Higher is Clat", "Conserved", "Higher in Cre"))  # New names
+
+crexclat_res_chr$A_X = "Autosomes"
+crexclat_res_chr[(crexclat_res_chr$chromosome == "X"), "A_X"] = "X"
+crexclat_a_x = crexclat_res_chr %>% group_by(A_X, crexclat) %>% dplyr::count()
+crexclat_a_x = crexclat_a_x %>% dplyr::rename(CrexClat = crexclat)
+crexclat_a_x$enrichement = as.numeric(enrichment(matrix(crexclat_a_x$n, nrow = 3), odds.ratio = T)) #nrow is basically total rows/2 (number of rowas for each category)
+crexclat_a_x$pval = as.numeric(enrichment(matrix(crexclat_a_x$n, nrow = 3), odds.ratio = F))
+crexclat_a_x$sig = ""
+crexclat_a_x$sig[ crexclat_a_x$pval < 0.05 & abs(log2(crexclat_a_x$enrichement)) > 0.5 ] = "*"
+crexclat_a_x$Sample = "Species-biased"
+
+crexclat_a_x_2 = as.data.frame(table(crexclat_res_chr$A_X, crexclat_res_chr$crexclat))
+B1_IV_a = ggplot(crexclat_a_x %>% filter(A_X == "X"), aes(x=log2(enrichement), y=CrexClat)) +
+  #geom_rect(data=rectX, aes(xmin=x1, xmax=x2, ymin=y1, ymax=y2), fill="grey90", alpha=0.5, inherit.aes=F) +
+  geom_vline(xintercept=0, size=1) +
+  geom_bar(aes(fill=CrexClat), stat="identity", position=position_dodge(width=0.9), alpha=0.7, show.legend=F)+
+  annotate(geom="label", label="autosomes", y=7.5, x=-.75, fill="black", color="white") +
+  annotate(geom="label", label="X", y=7.5, x=.75, fill="black", color="white") +
+  #facet_wrap(~Sample)+
+  labs(y="", x=expression(paste("enrichment (log"[2], " odds ratio)"))) +
+  background_grid(major="x", size.major = 0.2, colour.major = "grey75") +
+  geom_text(aes(x=log2(enrichement)/2, label=sig), size=5, show.legend=F, color="white") +
+  theme(legend.text=element_text(hjust=0),
+        strip.background = element_rect(fill="grey90", color=NA))
+
+```
+
+##C. Visualizing tissue-biased genes on chromosomes
+###I. Integrating chromosmal data with tissue-biased genes 
 
 ```{r}
 ##Read species-biased genes information (this data was generated from 1.DGEAnalysis.Rmd and stored in 3-Output)
-gxs_res = read.csv("../3-Output/gonadxsoma_genes.csv") #Saving the data under the same name as from analysis
+gxs_res = read.csv("../3-Output/DEGAnalysis/gonadxsoma_genes.csv") #Saving the data under the same name as from analysis
 rownames(gxs_res) = gxs_res$X 
 gxs_res = gxs_res[, -1]
 head(gxs_res)
@@ -196,10 +312,18 @@ View(gsgenes_freq)
 gsgenes_freq <- gsgenes_freq %>% 
   filter(Var1 == "I" | Var1 == "II" | Var1 == "III" | Var1 == "IV" | Var1 == "V" | Var1 == "X")
 
+```
 
+###II. Ploting tissue-biased genes across chromosomes
+```{r}
 # Plot tissue-biased genes across chromosomes
 #Soma-biased = 1; gonad-biased = -1; tissue-neutral = 0
-ggplot(gsgenes_freq, aes(x = Var1, y = Freq, fill = Var2)) +
+
+# Rename levels of Var2 directly in your data frame 
+gsgenes_freq$Var2 <- factor(gsgenes_freq$Var2, 
+                             levels = c("-1", "0", "1"),  # Old names
+                             labels = c("Gonad-biased", "tissue-neutral", "Soma-biased"))  # New names
+C1_II_a= ggplot(gsgenes_freq, aes(x = Var1, y = Freq, fill = Var2)) +
   geom_bar(stat = "identity", position = "dodge") +
   labs(x = "", y = "Number of genes", title = "Tissue-biased genes") +
   theme(
@@ -215,27 +339,73 @@ ggplot(gsgenes_freq, aes(x = Var1, y = Freq, fill = Var2)) +
 
 
 # Proportion of tissue-biased genes on chromosomes
-ggplot(gsgenes_freq) +
+C1_II_b = ggplot(gsgenes_freq) +
   aes(x = Var1, fill = Var2, weight = Freq) +
   geom_bar(position = "fill") +
   geom_text(stat = "prop", position = position_fill(vjust = 0.5)) +
-  scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks = seq(0, 1, 0.25))
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks = seq(0, 1, 0.25)) +
+  labs(x = "", y = "Count") +
+  theme(
+    axis.title.y = element_text(size = 20, hjust = 0.5),
+    axis.text.x = element_text(size = 26, face = "bold", colour = "black"),
+    axis.text.y = element_text(size = 15, color = "black"),
+    axis.title.x = element_text(size = 14)
+  )
 
 
-ggplot(gsgenes_freq) +
+C1_II_c = ggplot(gsgenes_freq) +
   aes(x = gsgenes_freq$Var1, fill = gsgenes_freq$Var2, weight = gsgenes_freq$Freq, by = gsgenes_freq$Var1) +
   geom_bar(position = "fill") +
   geom_text(stat = "prop", position = position_fill(.5))+
-  scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks=seq(0,1,0.25))
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks=seq(0,1,0.25)) +
+  labs(x = "", y = "Count") +
+  theme(
+    axis.title.y = element_text(size = 20, hjust = 0.5),
+    axis.text.x = element_text(size = 26, face = "bold", colour = "black"),
+    axis.text.y = element_text(size = 15, color = "black"),
+    axis.title.x = element_text(size = 14)
+  )
 
 ```
 
-###III. Integrating chromosmal data with sex-biased genes 
+###III. Odds Ratio enrichment plot across Autosomes and X-chromosome
+```{r}
+# Rename levels of Var2 directly in your data frame 
+gxs_res_chr$gxs <- factor(gxs_res_chr$gxs , 
+                             levels = c("-1", "0", "1"),  # Old names
+                             labels = c("Gonad-biased", "Tissue-Neutral", "Soma-biased"))  # New names
 
+gxs_res_chr$A_X = "Autosomes"
+gxs_res_chr[(gxs_res_chr$chromosome == "X"), "A_X"] = "X"
+gxs_a_x = gxs_res_chr %>% group_by(A_X, gxs) %>% dplyr::count()
+# gxs_a_x = gxs_a_x %>% dplyr::rename(CrexClat = crexclat)
+gxs_a_x$enrichement = as.numeric(enrichment(matrix(gxs_a_x$n, nrow = 3), odds.ratio = T)) #nrow is basically total rows/2 (number of rowas for each category)
+gxs_a_x$pval = as.numeric(enrichment(matrix(gxs_a_x$n, nrow = 3), odds.ratio = F))
+gxs_a_x$sig = ""
+gxs_a_x$sig[ gxs_a_x$pval < 0.05 & abs(log2(gxs_a_x$enrichement)) > 0.5 ] = "*"
+gxs_a_x$Sample = "Tissue-biased"
 
+gxs_a_x_2 = as.data.frame(table(gxs_res_chr$A_X, gxs_res_chr$gxs))
+C1_III_a = ggplot(gxs_a_x %>% filter(A_X == "X"), aes(x=log2(enrichement), y=gxs)) +
+  #geom_rect(data=rectX, aes(xmin=x1, xmax=x2, ymin=y1, ymax=y2), fill="grey90", alpha=0.5, inherit.aes=F) +
+  geom_vline(xintercept=0, size=1) +
+  geom_bar(aes(fill=gxs), stat="identity", position=position_dodge(width=0.9), alpha=0.7, show.legend=F)+
+  annotate(geom="label", label="autosomes", y=7.5, x=-.75, fill="black", color="white") +
+  annotate(geom="label", label="X", y=7.5, x=.75, fill="black", color="white") +
+  #facet_wrap(~Sample)+
+  labs(y="", x=expression(paste("enrichment (log"[2], " odds ratio)"))) +
+  background_grid(major="x", size.major = 0.2, colour.major = "grey75") +
+  geom_text(aes(x=log2(enrichement)/2, label=sig), size=5, show.legend=F, color="white") +
+  theme(legend.text=element_text(hjust=0),
+        strip.background = element_rect(fill="grey90", color=NA))
+
+```
+
+##D. Visualizing sex-biased genes on chromosomes
+###I. Integrating chromosmal data with sex-biased genes 
 ```{r}
 ##Read sex-biased genes information (this data was generated from 1.DGEAnalysis.Rmd and stored in 3-Output)
-mxf_res = read.csv("../3-Output/mxf_genes.csv") #Saving the data under the same name as from analysis
+mxf_res = read.csv("../3-Output/DEGAnalysis/mxf_genes.csv") #Saving the data under the same name as from analysis
 rownames(mxf_res) = mxf_res$X 
 mxf_res = mxf_res[, -1]
 head(mxf_res)
@@ -262,12 +432,20 @@ View(mfgenes_freq)
 mfgenes_freq <- mfgenes_freq %>% 
   filter(Var1 == "I" | Var1 == "II" | Var1 == "III" | Var1 == "IV" | Var1 == "V" | Var1 == "X")
 
+```
 
-# Plot tissue-biased genes across chromosomes
+###II. Plotting sex-biased genes across chrosomes
+```{r}
+# Plot sex-biased genes across chromosomes
 #male-biased = 1; female-biased = -1; sex-neutral = 0
-ggplot(mfgenes_freq, aes(x = Var1, y = Freq, fill = Var2)) +
+# Rename levels of Var2 directly in your data frame 
+mfgenes_freq$Var2 <- factor(mfgenes_freq$Var2, 
+                             levels = c("-1", "0", "1"),  # Old names
+                             labels = c("Female-biased", "sex-neutral", "Male-biased"))  # New names
+
+D1_II_a = ggplot(mfgenes_freq, aes(x = Var1, y = Freq, fill = Var2)) +
   geom_bar(stat = "identity", position = "dodge") +
-  labs(x = "", y = "Number of genes", title = "Tissue-biased genes") +
+  labs(x = "", y = "Number of genes", title = "Sex-biased genes") +
   theme(
     plot.title = element_text(size = 26, face = "bold", hjust = 0.5),
     axis.title.y = element_text(size = 20, hjust = 0.5),
@@ -281,25 +459,82 @@ ggplot(mfgenes_freq, aes(x = Var1, y = Freq, fill = Var2)) +
 
 
 # Proportion of tissue-biased genes on chromosomes
-ggplot(mfgenes_freq) +
+D1_II_b = ggplot(mfgenes_freq) +
   aes(x = Var1, fill = Var2, weight = Freq) +
   geom_bar(position = "fill") +
   geom_text(stat = "prop", position = position_fill(vjust = 0.5)) +
-  scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks = seq(0, 1, 0.25))
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks = seq(0, 1, 0.25)) +
+  labs(x = "", y = "Count") +
+  theme(
+    axis.title.y = element_text(size = 20, hjust = 0.5),
+    axis.text.x = element_text(size = 26, face = "bold", colour = "black"),
+    axis.text.y = element_text(size = 15, color = "black"),
+    axis.title.x = element_text(size = 14)
+  )
+  
 
 
-ggplot(mfgenes_freq) +
+D1_II_c = ggplot(mfgenes_freq) +
   aes(x = mfgenes_freq$Var1, fill = mfgenes_freq$Var2, weight = mfgenes_freq$Freq, by = mfgenes_freq$Var1) +
   geom_bar(position = "fill") +
   geom_text(stat = "prop", position = position_fill(.5))+
-  scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks=seq(0,1,0.25))
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks=seq(0,1,0.25)) +
+  labs(x = "", y = "Count") +
+  theme(
+    axis.title.y = element_text(size = 20, hjust = 0.5),
+    axis.text.x = element_text(size = 26, face = "bold", colour = "black"),
+    axis.text.y = element_text(size = 15, color = "black"),
+    axis.title.x = element_text(size = 14)
+  )
 
 ```
 
-#2. PART II - Visualizing interactions between variables
-##A. Figure 3.4
-###I. Finding genes within each category of genes by plotting upset plot
-#######################################################################
+###III. Odds Ratio enrichment plot across Autosomes and X-chromosome
+```{r}
+# Rename levels of Var2 directly in your data frame 
+mxf_res_chr$mxf <- factor(mxf_res_chr$mxf , 
+                             levels = c("-1", "0", "1"),  # Old names
+                             labels = c("Female-biased", "Sex-Neutral", "Male-biased"))  # New names
+
+mxf_res_chr$A_X = "Autosomes"
+mxf_res_chr[(mxf_res_chr$chromosome == "X"), "A_X"] = "X"
+mxf_a_x = mxf_res_chr %>% group_by(A_X, mxf) %>% dplyr::count()
+# gxs_a_x = gxs_a_x %>% dplyr::rename(CrexClat = crexclat)
+mxf_a_x$enrichement = as.numeric(enrichment(matrix(mxf_a_x$n, nrow = 3), odds.ratio = T)) #nrow is basically total rows/2 (number of rowas for each category)
+mxf_a_x$pval = as.numeric(enrichment(matrix(mxf_a_x$n, nrow = 3), odds.ratio = F))
+mxf_a_x$sig = ""
+mxf_a_x$sig[ mxf_a_x$pval < 0.05 & abs(log2(mxf_a_x$enrichement)) > 0.5 ] = "*"
+mxf_a_x$Sample = "Sex-biased"
+
+mxf_a_x_2 = as.data.frame(table(mxf_res_chr$A_X, mxf_res_chr$mxf))
+D1_III_a = ggplot(mxf_a_x %>% filter(A_X == "X"), aes(x=log2(enrichement), y=mxf)) +
+  #geom_rect(data=rectX, aes(xmin=x1, xmax=x2, ymin=y1, ymax=y2), fill="grey90", alpha=0.5, inherit.aes=F) +
+  geom_vline(xintercept=0, size=1) +
+  geom_bar(aes(fill=mxf), stat="identity", position=position_dodge(width=0.9), alpha=0.7, show.legend=F)+
+  annotate(geom="label", label="autosomes", y=7.5, x=-.75, fill="black", color="white") +
+  annotate(geom="label", label="X", y=7.5, x=.75, fill="black", color="white") +
+  #facet_wrap(~Sample)+
+  labs(y="", x=expression(paste("enrichment (log"[2], " odds ratio)"))) +
+  background_grid(major="x", size.major = 0.2, colour.major = "grey75") +
+  geom_text(aes(x=log2(enrichement)/2, label=sig), size=5, show.legend=F, color="white") +
+  theme(legend.text=element_text(hjust=0),
+        strip.background = element_rect(fill="grey90", color=NA))
+
+```
+
+## E. Organizing plots 
+
+```{r, warning=FALSE}
+# Arrange plots in a single panel
+combined_plot_chr <- B1_III_a + C1_II_a + D1_II_a + B1_III_c + C1_II_c + D1_II_c + plot_layout(ncol = 3)
+
+# Save the combined plot
+# ggsave("../3-Output/chromosomal_distribution.pdf", plot = combined_plot_chr, width = 24, height = 15)
+# ggsave("../3-Output/chromosomal_distribution.png", plot = combined_plot_chr, width = 24, height = 15)
+```
+
+#2. Visualizing interactions between variables
+##A. Figure 3.4 - Finding genes within each category of differntially expressed genes across species, sex and tissues by plotting upset plot
 
 ```{r}
 # Load required libraries
@@ -324,7 +559,7 @@ upset_data <- fromList(genelist)
 # First UpSet plot with frequency and degree grouping - all gene categories
 UpSetR::upset(
   upset_data, 
-  nsets = 12, 
+  nsets = 6, 
   nintersects = NA, 
   order.by = "freq", 
   group.by = "degree",
@@ -343,14 +578,22 @@ UpSetR::upset(
 ##library(ComplexHeatmap)
 # Create a combination matrix for further analysis
 m3 <- make_comb_mat(genelist, min_set_size = 1)
-
+m4 <- make_comb_mat(genelist, min_set_size = 0)
 # Extract gene names for a specific intersection category
 genes_in_comb <- extract_comb(m3, "000001")
 
 ##### Creating Additional UpSet Plots #####
 
 # Plot with default settings
-UpSet(m3)
+UpSet(m3,
+      comb_order = order(comb_size(m3), decreasing = TRUE),
+      top_annotation = upset_top_annotation(m3,add_numbers = TRUE, ylim = c(0, 4000)),
+      right_annotation = upset_right_annotation(m3, add_numbers = TRUE))
+
+UpSet(m4,
+      comb_order = order(comb_size(m4), decreasing = TRUE),
+      top_annotation = upset_top_annotation(m4,add_numbers = TRUE, ylim = c(0, 4000)),
+      right_annotation = upset_right_annotation(m4, add_numbers = TRUE))
 
 #Plot upset plot with top 10 gene categories (largest intersection size
 
@@ -366,100 +609,127 @@ UpSet(m3[top_combinations],
       top_annotation = upset_top_annotation(m3[top_combinations],add_numbers = TRUE, ylim = c(0, 4000)),
       right_annotation = upset_right_annotation(m3[top_combinations], add_numbers = TRUE))
 
+#Unique genes in list
+total_genes <- length(unique(unlist(genelist)))  # Count of unique genes in the genelist
+total_genes
+
+# Extract all combinations from the combination matrix `m3`
+all_combinations <- comb_size(m3)  # This gives the size of each combination
+
+# Now extract genes for each combination and store them in a list
+genes_in_plot <- unique(unlist(lapply(names(all_combinations), function(comb) {
+  extract_comb(m3, comb)
+})))
+
+# The total number of unique genes involved in the plot
+total_genes_in_plot <- length(genes_in_plot)
+total_genes_in_plot
+
+
 ```
 
+```{r}
+m3 = make_comb_mat(genelist, min_set_size = 1)
+extract_comb(m3, "000001") #get gene names for a particular intersection category
 
+#EXTRA COMMANDS TO GET INFORMATION ABOUT SETS
+# m3[1:5] #to get the first 5 least comination/intersection set sizes 
+str(m3)
+set_name(m3)
+comb_name(m3)
+set_size(m3)
+comb_size(m3)
+comb_degree(m3)
 
+t(m3)
+m3[, 1:3]
 
+comb_name(m3)
+length(extract_comb(m3, "111111"))
+length(extract_comb(m3, "111110"))
+extract_comb(m3, "111101")
+
+# From before dataset from your input
+genelist <- list(
+  "Sex" = row.names(mxf_res1), 
+  "SpxSex" = row.names(spxsex_res1), 
+  "TSxSex" = row.names(tsxsex_res1),
+  "Species" = row.names(crexclat_res1), 
+  "SpxTS" = row.names(spxts_res1), 
+  "Tissue" = row.names(gxs_res1)
+)
+
+# Use ComplexHeatmap's make_comb_mat function to generate the combination matrix
+#library(ComplexHeatmap)
+m3 <- make_comb_mat(genelist, min_set_size = 1)  # Include all intersections
+m4 <- make_comb_mat(genelist, min_set_size = 0)  # Allow empty intersections (if needed)
+
+# Extract all possible combinations of sets as strings
+combinations <- comb_name(m3)  # These represent the binary combinations for the sets
+
+# Initialize an empty data frame to store the results
+results_df <- data.frame(Gene = character(), comb_name = character(), stringsAsFactors = FALSE)
+
+# Loop through all combinations and extract genes for each intersection category
+for (combination in combinations) {
+  # Use extract_comb() to extract genes for the current combination
+  genes_in_comb <- extract_comb(m3, combination)
+  
+  # If genes exist in the current combination, store them with their comb_name
+  if (length(genes_in_comb) > 0) {
+    # Create a temporary data frame for the genes in this combination
+    temp_df <- data.frame(
+      Gene = genes_in_comb,
+      comb_name = rep(combination, length(genes_in_comb))
+    )
+    
+    # Append the results to the results data frame
+    results_df <- rbind(results_df, temp_df)
+  }
+}
+
+# View the results
+head(results_df)  # Print the first few rows of the results
+
+```
 
 #3. Trends associated with effective number of codons (ENC) and dn/ds
-##A. Preparing data to filter for genes with correct gene names along with enc, KA and Ks values
+##A. SPECIES-BIASED GENES
+###I. Preparing data to filter for genes with enc, KA and Ks values
 ```{r}
 # Read data from text files
-remanei_gene_names = read.table("../1-Input/remanei_gene_names.txt", fill = T)
-latens_gene_names = read.table("../1-Input/latens_gene_names.txt", fill = T)
-ka_ks_enc_data = read.table("../1-Input/FitMG94_dN_dS_ENC_values_all_orthologs_remanei_PX506_latens_PX534.txt", header = T)
+ka_ks_enc_data = read.table("../Specific specific gene confirmation/New annotation/FitMG94_dN_dS_ENC_corrected_dS_values_all_orthologs_new_annotations_remanei_latens.txt", header = T)
 
 # Check the structure data
-View(ka_ks_enc_data) #14764 genes
-View(remanei_gene_names) #15276 genes
-View(latens_gene_names) #18195 genes
+View(ka_ks_enc_data) #13793 genes
+# View(remanei_gene_names) #15276 genes
+# View(latens_gene_names) #18195 genes
+
+#Calculate dn/ds_corrected using ds_corrected for ENC value
+
+ka_ks_enc_data$dn.ds_corrected = ka_ks_enc_data$dN/ka_ks_enc_data$dS_corrected
+
+ka_ks_enc_data$Remanei_Gene <- gsub("-R.*$", "", ka_ks_enc_data$Remanei_Gene)
+ka_ks_enc_data$Latens_Gene <- gsub("-R.*$", "", ka_ks_enc_data$Latens_Gene)
+orthologs = orthologs[order(orthologs$C..remanei.Gene.name), ]
 
 #######################################################
-# Filter ENC data for genes with matching Remanei names
-ortho_enc_data <- ka_ks_enc_data %>%
-  filter(Remanei_Gene %in% remanei_gene_names$V1) 
+# Filter ENC data for orthologous genes
+head(orthologs)
+ortho_enc_data <- ka_ks_enc_data %>% filter(ka_ks_enc_data$Remanei_Gene %in% orthologs$C..remanei.Gene.name) #13785 genes
+ortholog_enc_kaks_data <- cbind(ortho_enc_data, orthologs$C..remanei.Gene.name_C.latens.Gene.name)
+colnames(ortholog_enc_kaks_data)[9] <- "ortho_names"
 
-# Filter Remanei gene names based on the filtered ENC data
-remanei_filtered_names <- remanei_gene_names %>%
-  filter(V1 %in% ortho_enc_data$Remanei_Gene) 
-
-# Combine the filtered ENC data with corresponding Remanei names
-ortho_enc_data <- cbind(ortho_enc_data, remanei_filtered_names)
-nrow(ortho_enc_data) #11456 genes
-
-
-#######################################################
-# Filter ENC data for genes with matching Latens names
-ortho_enc_data_2 <- ka_ks_enc_data %>%
-  filter(Latens_Gene %in% latens_gene_names$V1) %>%
-  arrange(Latens_Gene)
-
-# Filter Latens gene names based on the filtered ENC data
-latens_filtered_names <- latens_gene_names %>%
-  filter(V1 %in% ortho_enc_data_2$Latens_Gene)%>%
-  arrange(V1)
-
-# Combine the filtered ENC data with corresponding Latens names
-ortho_enc_data_2 <- cbind(ortho_enc_data_2, latens_filtered_names)
-nrow(ortho_enc_data_2) #12859 genes
-
-#NOTE: the orthologous data differs in the total number of genes with enc data as some genes called enc data are not in  cre/clat gene name file 
-
-#######################################################
-# Filter ENC data to retain common orthologs
-
-# Sort ortho_enc_data by Latens gene names
-ortho_enc_data = ortho_enc_data %>% 
-  arrange(Latens_Gene)
-
-# Filter orthologous data based on common Latens names
-ortho_enc_clat = ortho_enc_data_2[ortho_enc_data_2$Latens_Gene %in% ortho_enc_data$Latens_Gene, ]
- 
-ortho_enc_cre = ortho_enc_data[ortho_enc_data$Latens_Gene %in% ortho_enc_data_2$Latens_Gene, ]
-
-# Check the number of genes in both filtered data sets
-nrow(ortho_enc_cre) #10585 genes
-nrow(ortho_enc_clat)# 10585 genes
-
-# View the filtered data
-View(ortho_enc_clat)
-View(ortho_enc_cre)
-
-# Combining specific columns to retain gene names, dn/ds and enc values
-
-ortholog_enc_kaks_data = cbind(ortho_enc_cre, ortho_enc_clat[, 7:10])
-names(ortholog_enc_kaks_data)[11:14] = c("clat1", "clat2", "clat3", "clat4") 
 # Save the data
-
 # Uncomment to write the results to text files
-# write.table(ortho_enc_cre, file = "../3-Output/ortho_enc_crenames.txt",
-#              row.names = FALSE, col.names = TRUE, quote = FALSE)
-# write.table(ortho_enc_clat, file = "../3-Output/ortho_enc_clatnames.txt",
-#              row.names = FALSE, col.names = TRUE, quote = FALSE)
-# 
 # write.table(ortholog_enc_kaks_data, file = "../3-Output/ortholog_enc_kaks_data.txt",
 #              row.names = FALSE, col.names = TRUE, quote = FALSE)
 ```
 
-###I. Filtering for species-biased genes
+###II. Filtering for species-biased genes
 ```{r}
 head(crexclat_res_chr)
 head(ortholog_enc_kaks_data)
-#creating a new column
-ortholog_enc_kaks_data$ortho_names = paste(ortholog_enc_kaks_data$V4, ortholog_enc_kaks_data$clat4, sep = "_")
-ortholog_enc_kaks_data = ortholog_enc_kaks_data %>%
-  arrange(ortholog_enc_kaks_data$ortho_names)
 
 crexclat_res_chr_a = crexclat_res_chr %>%
   arrange(crexclat_res_chr$C..remanei.Gene.name_C.latens.Gene.name)
@@ -478,11 +748,35 @@ names(cumulative_enc_deseq2)
 
 
 # Uncomment to write the results to text files
-write.csv(cumulative_enc_deseq2, file = "../3-Output/cumulative_enc_deseq.csv",
-            row.names = FALSE, col.names = FALSE, quote = FALSE)
+# write.csv(cumulative_enc_deseq2, file = "../3-Output/cumulative_enc_deseq.csv",
+#             row.names = FALSE, col.names = FALSE, quote = FALSE)
+
+# Removing genes with very low ds values (these genes will end up having verey high dn/ds ratio affecting the averages)
+
+# Calculating 95 percentile to remove outliers based on corrected dn/ds values
+top_99_percentile_deseq <- quantile((cumulative_enc_deseq2 %>% 
+                             pull(dS_corrected)),
+                          na.rm = TRUE,
+                          0.99)
+
+
+cumulative_enc_deseq2_filt <- cumulative_enc_deseq2 %>% 
+  filter(dS_corrected < top_99_percentile_deseq)
+
+
+# Plotting density for filtered dn/dds_corrected data
+hist(cumulative_enc_deseq2_filt$dS_corrected, main = "Histogram of corrected ds", xlab = "ds_corrected", col = "lightblue", border = "black")
+
+hist(cumulative_enc_deseq2$dS_corrected, main = "Histogram of ds", xlab = "ds", col = "lightblue", border = "black", 
+     xlim = c(0, 6000))
+
+#Removing one gene with extremely high dn/ds value
+cumulative_enc_deseq2_filt <- cumulative_enc_deseq2_filt %>%
+  filter( dn.ds_corrected <= 2)
+
 ```
 
-##B. Basic statistics to compare different species-biased genes
+###III. Basic statistics to compare different species-biased genes
 
 ```{r}
 
@@ -528,7 +822,7 @@ calculate_averages <- function(data, sp_column, sp_names, dn_ds_column, enc_colu
 }
 
 # Assuming cumulative_enc_wgcna is your data frame and module_names is a vector of module names
-result_deseq2 <- calculate_module_averages(cumulative_enc_deseq2, "crexclat", c(-1, 0, 1), "dN.dS", "ENC")
+result_deseq2 <- calculate_module_averages(cumulative_enc_deseq2_filt, "crexclat", c(-1, 0, 1), "dn.ds_corrected", "ENC")
 
 # To view results
 print(result_deseq2$averages)
@@ -537,51 +831,1234 @@ print(result_deseq2$modes)
 
 #Save results
 crexclat_stats = as.data.frame(result_deseq2)
+View(crexclat_stats)
 
+#Rename crexclat column
+# Rename levels of Var2 directly in your data frame 
+cumulative_enc_deseq2_filt$crexclat <- factor(cumulative_enc_deseq2_filt$crexclat, 
+                             levels = c("-1", "0", "1"),  # Old names
+                             labels = c("Higher in Clat", "Conserved", "Higher in Cre"))  # New names
+
+
+# Uncomment to write the results to text files
+# write.csv(crexclat_stats, file = "../3-Output/DEGAnalysis/crexclat_stats.csv",
+#             row.names = FALSE, col.names = FALSE, quote = FALSE)
 ```
 
-##C. Visualize data across different species-biased genes
-###I. Violin Plot for dn/ds by species-bias
-```{r}
+###IV.Expression divergence density and bar plots
+```{r A3_IV_a}
+ A3_IV_a = ggplot(cumulative_enc_deseq2_filt, aes(y = crexclat, x = abs(log2FoldChange))) +
+  geom_density_ridges(aes(fill = crexclat), scale = 1, color = NA, alpha = 0.7, show.legend = FALSE) +
+  geom_boxplot(alpha = 0.5, outlier.shape = NA, width = 0.2) +
+  # Define custom colors for 'crexclat' (replace with your actual categories)
+  scale_fill_manual(values = c("Higher in Cre" = "red", "Conserved" = "blue", "Higher in Clat" = "green")) +
+  xlab(expression(paste("log"[2], " expression divergence"))) +
+  ylab("") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 26, face = "bold", hjust = 0.5),
+    axis.title.y = element_text(size = 18, hjust = 0.5),
+    axis.title.x = element_text(size = 18),
+    axis.text.x = element_text(size = 16, face = "bold", colour = "black"),
+    axis.text.y = element_text(size = 16, color = "black"))
+```
+
+###V. Violin Plot for dn/ds by species-bias
+```{r A3_V_a}
 # Violin Plot for dn/ds by modules
-ggplot(cumulative_enc_deseq2, aes(x = as.character(crexclat), y = dN.dS)) +
+A3_V_a = ggplot(cumulative_enc_deseq2_filt, aes(x = as.character(crexclat), y = dn.ds_corrected)) +
   geom_violin(fill = "lightblue", color = "black") +
   labs(title = "Violin plot of dn/ds by species-bias",
        x = "Species-bias",
        y = "dn/ds") +
   stat_summary(fun = mean, geom = "point", shape = 21, size = 2, 
                fill = "white", color = "black", stroke = 1) +
-  scale_x_discrete(labels = c("-1" = "C.latens-biased", "0" = "Conserved", "1" = "C. remanei-biased"))+
+  #scale_x_discrete(labels = c("-1" = "C.latens-biased", "0" = "Conserved", "1" = "C. remanei-biased"))+
   #ylim(0, 15)+
-  theme_minimal()
+  theme_minimal()+
+  theme(
+    plot.title = element_text(size = 26, face = "bold", hjust = 0.5),
+    axis.title.y = element_text(size = 18, hjust = 0.5),
+    axis.title.x = element_text(size = 18),
+    axis.text.x = element_text(size = 16, face = "bold", colour = "black"),
+    axis.text.y = element_text(size = 16, color = "black"))
 
 ```
 
-###II. Violin plot for ENC by species-bias
-```{r}
-ggplot(cumulative_enc_deseq2, aes(x = as.character(crexclat), y = ENC)) +
+###VI.DN/DS density and bar plots
+```{r A3_VI_a}
+A3_VI_a = ggplot(cumulative_enc_deseq2_filt, aes(y=crexclat, x=dn.ds_corrected)) + 
+  geom_density_ridges(aes(fill = crexclat), scale = 1, color = NA, alpha = 0.7, show.legend = FALSE) +
+  geom_boxplot(alpha = 0.5, outlier.shape = NA, width = 0.2) +
+  # Define custom colors for 'crexclat' (replace with your actual categories)
+  scale_fill_manual(values = c("Higher in Cre" = "red", "Conserved" = "blue", "Higher in Clat" = "green")) +
+  xlab(expression(paste(italic("K")[a],"/",italic("K")[s],"\'"))) +
+  ylab("") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 26, face = "bold", hjust = 0.5),
+    axis.title.y = element_text(size = 18, hjust = 0.5),
+    axis.title.x = element_text(size = 18),
+    axis.text.x = element_text(size = 16, face = "bold", colour = "black"),
+    axis.text.y = element_text(size = 16, color = "black"))
+```
+
+###VII. Violin plot for ENC by species-bias
+```{r A3_VII_a}
+A3_VII_a = ggplot(cumulative_enc_deseq2_filt, aes(x = as.character(crexclat), y = ENC)) +
   geom_violin(fill = "lightblue", color = "black") +
   labs(title = "Violin plot of ENC by Species-bias",
        x = "Species-bias",
        y = "ENC") +
   stat_summary(fun = mean, geom = "point", shape = 21, size = 2, 
                fill = "white", color = "black", stroke = 1) +
-  scale_x_discrete(labels = c("-1" = "C.latens-biased", "0" = "Conserved", "1" = "C. remanei-biased"))+
+  #scale_x_discrete(labels = c("-1" = "C.latens-biased", "0" = "Conserved", "1" = "C. remanei-biased"))+
   ylim(0, 80)+
-  theme_minimal()
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 26, face = "bold", hjust = 0.5),
+    axis.title.y = element_text(size = 18, hjust = 0.5),
+    axis.title.x = element_text(size = 18),
+    axis.text.x = element_text(size = 16, face = "bold", colour = "black"),
+    axis.text.y = element_text(size = 16, color = "black")
+    
+  )
 ```
 
-###IV. ENC vs dn/ds
+###VIII. ENC vs dn/ds
+```{r A3_VIII_a}
+
+A3_VIII_a= ggplot(cumulative_enc_deseq2_filt, aes(y = cumulative_enc_deseq2_filt$dn.ds_corrected, 
+                                 x = cumulative_enc_deseq2_filt$ENC, 
+                                 colour = as.character(cumulative_enc_deseq2_filt$crexclat))) +
+  geom_point( size = 3) +  # Set point color and size
+  labs(title = "Scatter Plot of ENC vs dn/ds (Species-bias)",
+       x = "ENC",
+       y = "dn/ds") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 26, face = "bold", hjust = 0.5),
+    axis.title.y = element_text(size = 18, hjust = 0.5),
+    axis.title.x = element_text(size = 18),
+    axis.text.x = element_text(size = 16, face = "bold", colour = "black"),
+    axis.text.y = element_text(size = 16, color = "black"))
+
+```
+
+###IX. Expression divergence vs dn/ds
+```{r A3_IX_a}
+#A For all the genes
+# Calculate correlation (Pearson)
+correlation_all <- cor(cumulative_enc_deseq2_filt$log2FoldChange, cumulative_enc_deseq2_filt$dn.ds_corrected)
+
+# Plot
+A3_IX_a = ggplot(cumulative_enc_deseq2_filt, aes(x = abs(log2FoldChange), y = dn.ds_corrected, color = crexclat)) +
+  geom_point(alpha = 0.6, size = 2.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "black", linetype = "dashed", linewidth = 1) +
+  scale_color_manual(values = c("Higher in Cre" = "#E41A1C", "Higher in Clat" = "blue", "Conserved" = "grey")) +
+  labs(
+    x = expression("Expression Divergence (|log"[2]*" Fold Change|)"),
+    y = expression(d[n]/d[s]),
+    title = "Species-biased Genes I"
+  ) +
+  annotate("text", x = max(cumulative_enc_deseq2_filt$log2FoldChange) * 0.7, 
+           y = max(cumulative_enc_deseq2_filt$dn.ds_corrected) * 0.9, 
+           label = paste("r =", round(correlation_all, 2)), 
+           size = 5, color = "black") +
+  theme_minimal(base_size = 16)
+
+#B For Species-biased genes
+# Filter out 'Conserved' genes
+non_conserved <- cumulative_enc_deseq2_filt[cumulative_enc_deseq2_filt$crexclat != "Conserved", ]
+
+# Remove NAs
+plot_data <- na.omit(non_conserved[, c("dn.ds_corrected", "log2FoldChange", "crexclat")])
+
+# Calculate correlation (Pearson)
+correlation <- cor(plot_data$log2FoldChange, plot_data$dn.ds_corrected)
+
+# Plot
+A3_IX_b <- ggplot(plot_data, aes(x = abs(log2FoldChange), y = dn.ds_corrected, color = crexclat)) +
+  geom_point(alpha = 0.6, size = 2.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "black", linetype = "dashed", linewidth = 1) +
+  scale_color_manual(values = c("Higher in Cre" = "#E41A1C", "Higher in Clat" = "blue")) +
+  labs(
+    x = expression("Expression Divergence (|log"[2]*" Fold Change|)"),
+    y = expression(d[n]/d[s]),
+    title = "Species-biased Genes II"
+  ) +
+  annotate("text", x = max(plot_data$log2FoldChange) * 0.7, 
+           y = max(plot_data$dn.ds_corrected) * 0.9, 
+           label = paste("r =", round(correlation, 2)), 
+           size = 5, color = "black") +
+  theme_minimal(base_size = 16)
+
+```
+
+
+##B. TISSUE-BIASED GENES
+###I. Filtering for tissue-biased genes
+```{r}
+gxs_res 
+head(gxs_res)
+head(ortholog_enc_kaks_data)
+
+gxs_res_chr_a = gxs_res_chr %>%
+  arrange(gxs_res_chr$C..remanei.Gene.name_C.latens.Gene.name)
+
+#filtering genes to get ka/ks and enc values
+ortholog_enc_kaks_data_gxs = (ortholog_enc_kaks_data[ortholog_enc_kaks_data$ortho_names %in% gxs_res_chr_a$C..remanei.Gene.name_C.latens.Gene.name, ])
+
+nrow(ortholog_enc_kaks_data_gxs)
+
+gxs_res_chr_filtered = (gxs_res_chr_a[gxs_res_chr_a$C..remanei.Gene.name_C.latens.Gene.name %in% ortholog_enc_kaks_data_gxs$ortho_names, ])
+nrow(gxs_res_chr_filtered)
+
+
+cumulative_enc_gxs = (cbind(ortholog_enc_kaks_data_gxs, gxs_res_chr_filtered))
+names(cumulative_enc_gxs)
+
+
+# Uncomment to write the results to text files
+# write.csv(cumulative_enc_gxs, file = "../3-Output/cumulative_enc_deseq_gxs.csv",
+#             row.names = FALSE, col.names = FALSE, quote = FALSE)
+
+
+# Calculating 95 percentile to remove outliers based on corrected dn/ds values
+top_99_percentile_gxs <- quantile((cumulative_enc_gxs %>% 
+                             pull(dS_corrected)),
+                          na.rm = TRUE,
+                          0.99)
+
+cumulative_enc_gxs_filt <- cumulative_enc_gxs %>% 
+  filter(dS_corrected < top_99_percentile_gxs)
+
+
+# Plotting density for filtered dn/dds_corrected data
+hist(cumulative_enc_gxs_filt$dS_corrected, main = "Histogram of corrected ds", xlab = "ds_corrected", col = "lightblue", border = "black")
+
+hist(cumulative_enc_gxs$dS_corrected, main = "Histogram of ds", xlab = "ds", col = "lightblue", border = "black", 
+     xlim = c(0, 6000))
+
+#Removing one gene with extremely high dn/ds value
+cumulative_enc_gxs_filt <- cumulative_enc_gxs_filt %>%
+  filter( dn.ds_corrected <= 2)
+
+```
+
+###II. Basic statistics to compare different tissues-biased genes
 ```{r}
 
-ggplot(cumulative_enc_deseq2, aes(x = cumulative_enc_deseq2$dN.dS, 
-                                 y = cumulative_enc_deseq2$ENC, 
-                                 colour = as.character(cumulative_enc_deseq2$crexclat))) +
-  geom_point( size = 3) +  # Set point color and size
-  labs(title = "Scatter Plot of ENC vs dn/ds",
-       y = "ENC",
-       x = "dn/ds") +
-  theme_minimal()
+# Custom mode function
+get_mode <- function(v) {
+  uniq_v <- unique(v)
+  uniq_v[which.max(tabulate(match(v, uniq_v)))]
+}
+
+# Function to calculate average, median, and mode for each module
+calculate_averages <- function(data, sp_column, sp_names, dn_ds_column, enc_column) {
+  # Filter the data for the specific modules
+  module_data <- data %>%
+    filter(!!sym(sp_column) %in% sp_names)
+  
+  # Calculate average, median, and mode values for each module
+  averages <- module_data %>%
+    group_by(!!sym(sp_column)) %>%
+    summarise(
+      average_dn_ds = mean(!!sym(dn_ds_column), na.rm = TRUE),
+      average_enc = mean(!!sym(enc_column), na.rm = TRUE),
+      .groups = 'drop'
+    )
+  
+  medians <- module_data %>%
+    group_by(!!sym(sp_column)) %>%
+    summarise(
+      median_dn_ds = median(!!sym(dn_ds_column), na.rm = TRUE),
+      median_enc = median(!!sym(enc_column), na.rm = TRUE),
+      .groups = 'drop'
+    )
+  
+  modes <- module_data %>%
+    group_by(!!sym(sp_column)) %>%
+    summarise(
+      mode_dn_ds = get_mode(!!sym(dn_ds_column)),
+      mode_enc = get_mode(!!sym(enc_column)),
+      .groups = 'drop'
+    )
+  
+  # Return results as a list
+  return(list(averages = averages, medians = medians, modes = modes))
+}
+
+# Assuming cumulative_enc_wgcna is your data frame and module_names is a vector of module names
+result_deseq2_gxs <- calculate_module_averages(cumulative_enc_gxs_filt, "gxs", c(-1, 0, 1), "dn.ds_corrected", "ENC")
+
+# To view results
+print(result_deseq2_gxs$averages)
+print(result_deseq2_gxs$medians)
+print(result_deseq2_gxs$modes)
+
+#Save results
+gxs_stats = as.data.frame(result_deseq2_gxs)
+View(gxs_stats)
+
+# Uncomment to write the results to text files
+# write.csv(gxs_stats, file = "../3-Output/DEGAnalysis/gxs_stats.csv",
+#             row.names = FALSE, col.names = FALSE, quote = FALSE)
+```
+
+###III.Expression divergence density and bar plots
+```{r B3_III_a}
+# Rename levels of Var2 directly in your data frame 
+cumulative_enc_gxs_filt$gxs <- factor(cumulative_enc_gxs_filt$gxs, 
+                             levels = c("-1", "0", "1"),  # Old names
+                             labels = c("Gonad-biased", "Tissue-neutral", "Soma-biased"))  # New names
+
+B3_III_a = ggplot(cumulative_enc_gxs_filt, aes(y = gxs, x = abs(log2FoldChange))) +
+  geom_density_ridges(aes(fill = gxs), scale = 1, color = NA, alpha = 0.7, show.legend = FALSE) +
+  geom_boxplot(alpha = 0.5, outlier.shape = NA, width = 0.2) +
+  # Define custom colors for 'crexclat' (replace with your actual categories)
+  scale_fill_manual(values = c("Gonad-biased" = "red", "Tissue-neutral" = "blue", "Soma-biased" = "green")) +
+  xlab(expression(paste("log"[2], " expression divergence"))) +
+  ylab("") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 26, face = "bold", hjust = 0.5),
+    axis.title.y = element_text(size = 18, hjust = 0.5),
+    axis.title.x = element_text(size = 18),
+    axis.text.x = element_text(size = 16, face = "bold", colour = "black"),
+    axis.text.y = element_text(size = 16, color = "black"))+
+  scale_x_continuous(breaks = c(0, 5, 10, 15, 20))  # Custom x-axis ticks
+```
+
+###IV. Violin Plot for dn/ds by tissue-bias
+```{r B3_IV_a}
+
+# Violin Plot for dn/ds by modules
+B3_IV_a = ggplot(cumulative_enc_gxs_filt, aes(x = as.character(gxs), y = dn.ds_corrected)) +
+  geom_violin(fill = "lightblue", color = "black") +
+  labs(title = "Violin plot of dn/ds by tissue-bias",
+       x = "Tissue-bias",
+       y = "dn/ds") +
+  stat_summary(fun = mean, geom = "point", shape = 21, size = 2, 
+               fill = "white", color = "black", stroke = 1) +
+  #scale_x_discrete(labels = c("-1" = "Gonad-biased", "0" = "Tissue-neutral", "1" = "Soma-biased"))+
+  #ylim(0, 15)+
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 26, face = "bold", hjust = 0.5),
+    axis.title.y = element_text(size = 18, hjust = 0.5),
+    axis.title.x = element_text(size = 18),
+    axis.text.x = element_text(size = 16, face = "bold", colour = "black"),
+    axis.text.y = element_text(size = 16, color = "black"))
 
 ```
+
+###V.DN/DS density and bar plots
+```{r B3_V_a}
+B3_V_a = ggplot(cumulative_enc_gxs_filt, aes(y=gxs, x=dn.ds_corrected)) + 
+  geom_density_ridges(aes(fill = gxs), scale = 1, color = NA, alpha = 0.7, show.legend = FALSE) +
+  geom_boxplot(alpha = 0.5, outlier.shape = NA, width = 0.2) +
+  # Define custom colors for 'crexclat' (replace with your actual categories)
+  scale_fill_manual(values = c("Gonad-biased" = "red", "Tissue-neutral" = "blue", "Soma-biased" = "green")) +
+  xlab(expression(paste(italic("K")[a],"/",italic("K")[s],"\'"))) +
+  ylab("") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 26, face = "bold", hjust = 0.5),
+    axis.title.y = element_text(size = 18, hjust = 0.5),
+    axis.title.x = element_text(size = 18),
+    axis.text.x = element_text(size = 16, face = "bold", colour = "black"),
+    axis.text.y = element_text(size = 16, color = "black"))
+```
+
+###VI. Violin plot for ENC by tissue-bias
+```{r B3_VI_a}
+B3_VI_a = ggplot(cumulative_enc_gxs_filt, aes(x = as.character(gxs), y = ENC)) +
+  geom_violin(fill = "lightblue", color = "black") +
+  labs(title = "Violin plot of ENC by Tissue-bias",
+       x = "Tissue-bias",
+       y = "ENC") +
+  stat_summary(fun = mean, geom = "point", shape = 21, size = 2, 
+               fill = "white", color = "black", stroke = 1) +
+  #scale_x_discrete(labels = c("-1" = "Gonad-biased", "0" = "Tissue-neutral", "1" = "Soma-biased"))+
+  ylim(0, 80)+
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 26, face = "bold", hjust = 0.5),
+    axis.title.y = element_text(size = 18, hjust = 0.5),
+    axis.title.x = element_text(size = 18),
+    axis.text.x = element_text(size = 16, face = "bold", colour = "black"),
+    axis.text.y = element_text(size = 16, color = "black")
+    
+  )
+```
+
+###VII. ENC vs dn/ds
+```{r B3_VII_a}
+
+B3_VII_a = ggplot(cumulative_enc_gxs_filt, aes(y = cumulative_enc_gxs_filt$dn.ds_corrected, 
+                                 x = cumulative_enc_gxs_filt$ENC, 
+                                 colour = as.character(cumulative_enc_gxs_filt$gxs))) +
+  geom_point( size = 3) +  # Set point color and size
+  labs(title = "Scatter Plot of ENC vs dn/ds (tissue-bias)",
+       x = "ENC",
+       y = "dn/ds") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 26, face = "bold", hjust = 0.5),
+    axis.title.y = element_text(size = 18, hjust = 0.5),
+    axis.title.x = element_text(size = 18),
+    axis.text.x = element_text(size = 16, face = "bold", colour = "black"),
+    axis.text.y = element_text(size = 16, color = "black")
+    
+  )
+
+```
+
+###VIII. Expression divergence vs dn/ds
+```{r B3_VIII_a}
+#A For all the genes
+# Calculate correlation (Pearson)
+correlation_gs <- cor(cumulative_enc_gxs_filt$log2FoldChange, cumulative_enc_gxs_filt$dn.ds_corrected)
+
+# Plot
+B3_VIII_a = ggplot(cumulative_enc_gxs_filt, aes(x = abs(log2FoldChange), y = dn.ds_corrected, color = gxs )) +
+  geom_point(alpha = 0.6, size = 2.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "black", linetype = "dashed", linewidth = 1) +
+  scale_color_manual(values = c("Soma-biased" = "#E41A1C", "Gonad-biased" = "blue", "Tissue-neutral" = "grey")) +
+  labs(
+    x = expression("Expression Divergence (|log"[2]*" Fold Change|)"),
+    y = expression(d[n]/d[s]),
+    title = "Tissue-biased Genes I"
+  ) +
+  annotate("text", x = max(cumulative_enc_gxs_filt$log2FoldChange) * 0.7, 
+           y = max(cumulative_enc_gxs_filt$dn.ds_corrected) * 0.9, 
+           label = paste("r =", round(correlation_gs, 2)), 
+           size = 5, color = "black") +
+  theme_minimal(base_size = 16)
+
+#B For Tissue-biased genes
+# Filter out 'Conserved' genes
+non_conserved_gs <- cumulative_enc_gxs_filt[cumulative_enc_gxs_filt$gxs != "Tissue-neutral", ]
+
+# Remove NAs
+plot_data_gs <- na.omit(non_conserved_gs[, c("dn.ds_corrected", "log2FoldChange", "gxs")])
+
+# Calculate correlation (Pearson)
+correlation_gs <- cor(plot_data_gs$log2FoldChange, plot_data_gs$dn.ds_corrected)
+
+# Plot
+B3_VIII_b <- ggplot(plot_data_gs, aes(x = abs(log2FoldChange), y = dn.ds_corrected, color = gxs)) +
+  geom_point(alpha = 0.6, size = 2.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "black", linetype = "dashed", linewidth = 1) +
+  scale_color_manual(values = c("Soma-biased" = "#E41A1C", "Gonad-biased" = "blue")) +
+  labs(
+    x = expression("Expression Divergence (|log"[2]*" Fold Change)|"),
+    y = expression(d[n]/d[s]),
+    title = "Tissue-biased Gene II"
+  ) +
+  annotate("text", x = max(plot_data_gs$log2FoldChange) * 0.7, 
+           y = max(plot_data_gs$dn.ds_corrected) * 0.9, 
+           label = paste("r =", round(correlation_gs, 2)), 
+           size = 5, color = "black") +
+  theme_minimal(base_size = 16)
+
+```
+
+##C. SEX-BIASED GENES
+###I. Filtering for sex-biased genes
+```{r}
+gxs_res 
+head(mxf_res)
+head(ortholog_enc_kaks_data)
+
+mxf_res_chr_a = mxf_res_chr %>%
+  arrange(mxf_res_chr$C..remanei.Gene.name_C.latens.Gene.name)
+
+#filtering genes to get ka/ks and enc values
+ortholog_enc_kaks_data_mxf = (ortholog_enc_kaks_data[ortholog_enc_kaks_data$ortho_names %in% mxf_res_chr_a$C..remanei.Gene.name_C.latens.Gene.name, ])
+
+nrow(ortholog_enc_kaks_data_mxf)
+
+mxf_res_chr_filtered = (mxf_res_chr_a[mxf_res_chr_a$C..remanei.Gene.name_C.latens.Gene.name %in% ortholog_enc_kaks_data_mxf$ortho_names, ])
+nrow(mxf_res_chr_filtered)
+
+
+cumulative_enc_mxf = (cbind(ortholog_enc_kaks_data_mxf, mxf_res_chr_filtered))
+names(cumulative_enc_mxf)
+
+
+# Uncomment to write the results to text files
+# write.csv(cumulative_enc_mxf, file = "../3-Output/cumulative_enc_deseq_mxf.csv",
+#             row.names = FALSE, col.names = FALSE, quote = FALSE)
+
+
+# Calculating 95 percentile to remove outliers based on corrected dn/ds values
+top_99_percentile_mxf <- quantile((cumulative_enc_mxf %>% 
+                             pull(dS_corrected)),
+                          na.rm = TRUE,
+                          0.99)
+
+
+cumulative_enc_mxf_filt <- cumulative_enc_mxf %>% 
+  filter(dS_corrected < top_99_percentile_mxf)
+
+
+# Plotting density for filtered dn/dds_corrected data
+hist(cumulative_enc_mxf_filt$dS_corrected, main = "Histogram of corrected ds", xlab = "ds_corrected", col = "lightblue", border = "black")
+
+hist(cumulative_enc_mxf$dS_corrected, main = "Histogram of ds", xlab = "ds", col = "lightblue", border = "black", 
+     xlim = c(0, 6000))
+
+#Removing one gene with extremely high dn/ds value
+cumulative_enc_mxf_filt <- cumulative_enc_mxf_filt %>%
+  filter( dn.ds_corrected <= 2)
+
+```
+
+###II. Basic statistics to compare different sex-biased genes
+
+```{r}
+
+# Custom mode function
+get_mode <- function(v) {
+  uniq_v <- unique(v)
+  uniq_v[which.max(tabulate(match(v, uniq_v)))]
+}
+
+# Function to calculate average, median, and mode for each module
+calculate_averages <- function(data, sp_column, sp_names, dn_ds_column, enc_column) {
+  # Filter the data for the specific modules
+  module_data <- data %>%
+    filter(!!sym(sp_column) %in% sp_names)
+  
+  # Calculate average, median, and mode values for each module
+  averages <- module_data %>%
+    group_by(!!sym(sp_column)) %>%
+    summarise(
+      average_dn_ds = mean(!!sym(dn_ds_column), na.rm = TRUE),
+      average_enc = mean(!!sym(enc_column), na.rm = TRUE),
+      .groups = 'drop'
+    )
+  
+  medians <- module_data %>%
+    group_by(!!sym(sp_column)) %>%
+    summarise(
+      median_dn_ds = median(!!sym(dn_ds_column), na.rm = TRUE),
+      median_enc = median(!!sym(enc_column), na.rm = TRUE),
+      .groups = 'drop'
+    )
+  
+  modes <- module_data %>%
+    group_by(!!sym(sp_column)) %>%
+    summarise(
+      mode_dn_ds = get_mode(!!sym(dn_ds_column)),
+      mode_enc = get_mode(!!sym(enc_column)),
+      .groups = 'drop'
+    )
+  
+  # Return results as a list
+  return(list(averages = averages, medians = medians, modes = modes))
+}
+
+# Assuming cumulative_enc_wgcna is your data frame and module_names is a vector of module names
+result_deseq2_mxf <- calculate_module_averages(cumulative_enc_mxf_filt, "mxf", c(-1, 0, 1), "dn.ds_corrected", "ENC")
+
+# To view results
+print(result_deseq2_mxf$averages)
+print(result_deseq2_mxf$medians)
+print(result_deseq2_mxf$modes)
+
+#Save results
+mxf_stats = as.data.frame(result_deseq2_mxf)
+View(mxf_stats)
+
+# Uncomment to write the results to text files
+# write.csv(mxf_stats, file = "../3-Output/DEGAnalysis/mxf_stats.csv",
+#             row.names = FALSE, col.names = FALSE, quote = FALSE)
+
+```
+
+###III.Expression divergence density and bar plots
+```{r C3_III_a}
+# Rename levels of Var2 directly in your data frame 
+cumulative_enc_mxf_filt$mxf <- factor(cumulative_enc_mxf_filt$mxf , 
+                             levels = c("-1", "0", "1"),  # Old names
+                             labels = c("Female-biased", "sex-neutral", "Male-biased"))  # New names
+
+C3_III_a = ggplot(cumulative_enc_mxf_filt, aes(y = mxf, x = abs(log2FoldChange))) +
+  geom_density_ridges(aes(fill = mxf), scale = 1, color = NA, alpha = 0.7, show.legend = FALSE) +
+  geom_boxplot(alpha = 0.5, outlier.shape = NA, width = 0.2) +
+  # Define custom colors for 'crexclat' (replace with your actual categories)
+  scale_fill_manual(values = c("Female-biased" = "red", "sex-neutral" = "blue", "Male-biased" = "green")) +
+  xlab(expression(paste("log"[2], " expression divergence"))) +
+  ylab("") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 26, face = "bold", hjust = 0.5),
+    axis.title.y = element_text(size = 18, hjust = 0.5),
+    axis.title.x = element_text(size = 18),
+    axis.text.x = element_text(size = 16, face = "bold", colour = "black"),
+    axis.text.y = element_text(size = 16, color = "black"))
+```
+
+###IV. Violin Plot for dn/ds by sex-bias
+```{r C3_IV_a}
+# Violin Plot for dn/ds by modules
+C3_IV_a = ggplot(cumulative_enc_mxf_filt, aes(x = as.character(mxf), y = dn.ds_corrected)) +
+  geom_violin(fill = "lightblue", color = "black") +
+  labs(title = "Violin plot of dn/ds by Sex-bias",
+       x = "Sex-bias",
+       y = "dn/ds") +
+  stat_summary(fun = mean, geom = "point", shape = 21, size = 2, 
+               fill = "white", color = "black", stroke = 1) +
+  #scale_x_discrete(labels = c("-1" = "Female-biased", "0" = "Sex-neutral", "1" = "Male-biased"))+
+  #ylim(0, 15)+
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 26, face = "bold", hjust = 0.5),
+    axis.title.y = element_text(size = 18, hjust = 0.5),
+    axis.title.x = element_text(size = 18),
+    axis.text.x = element_text(size = 16, face = "bold", colour = "black"),
+    axis.text.y = element_text(size = 16, color = "black")
+    
+  )
+
+```
+
+###V.DN/DS density and bar plots
+```{r C3_V_a}
+C3_V_a = ggplot(cumulative_enc_mxf_filt, aes(y=mxf, x=dn.ds_corrected)) + 
+  geom_density_ridges(aes(fill = mxf), scale = 1, color = NA, alpha = 0.7, show.legend = FALSE) +
+  geom_boxplot(alpha = 0.5, outlier.shape = NA, width = 0.2) +
+  # Define custom colors for 'crexclat' (replace with your actual categories)
+  scale_fill_manual(values = c("Female-biased" = "red", "sex-neutral" = "blue", "Male-biased" = "green")) +
+  xlab(expression(paste(italic("K")[a],"/",italic("K")[s],"\'"))) +
+  ylab("") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 26, face = "bold", hjust = 0.5),
+    axis.title.y = element_text(size = 18, hjust = 0.5),
+    axis.title.x = element_text(size = 18),
+    axis.text.x = element_text(size = 16, face = "bold", colour = "black"),
+    axis.text.y = element_text(size = 16, color = "black"))
+```
+
+###VI. Violin plot for ENC by sex-bias
+```{r C3_VI_a}
+C3_VI_a = ggplot(cumulative_enc_mxf_filt, aes(x = as.character(mxf), y = ENC)) +
+  geom_violin(fill = "lightblue", color = "black") +
+  labs(title = "Violin plot of ENC by Sex-bias",
+       x = "Sex-bias",
+       y = "ENC") +
+  stat_summary(fun = mean, geom = "point", shape = 21, size = 2, 
+               fill = "white", color = "black", stroke = 1) +
+  scale_x_discrete(labels = c("-1" = "Female-biased", "0" = "Sex-neutral", "1" = "Male-biased"))+
+  ylim(0, 80)+
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 26, face = "bold", hjust = 0.5),
+    axis.title.y = element_text(size = 18, hjust = 0.5),
+    axis.title.x = element_text(size = 18),
+    axis.text.x = element_text(size = 16, face = "bold", colour = "black"),
+    axis.text.y = element_text(size = 16, color = "black")
+    
+  )
+```
+
+###VII. ENC vs dn/ds
+```{r C3_VII_a}
+C3_VII_a = ggplot(cumulative_enc_mxf_filt, aes(y = cumulative_enc_mxf_filt$dn.ds_corrected, 
+                                 x = cumulative_enc_mxf_filt$ENC, 
+                                 colour = as.character(cumulative_enc_mxf_filt$mxf))) +
+  geom_point( size = 3) +  # Set point color and size
+  labs(title = "Scatter Plot of ENC vs dn/ds (Sex-bias)",
+       x = "ENC",
+       y = "dn/ds") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 26, face = "bold", hjust = 0.5),
+    axis.title.y = element_text(size = 18, hjust = 0.5),
+    axis.title.x = element_text(size = 18),
+    axis.text.x = element_text(size = 16, face = "bold", colour = "black"),
+    axis.text.y = element_text(size = 16, color = "black")
+    
+  )
+
+```
+
+###VIII. Expression divergence vs dn/ds
+```{r C3_VIII_a}
+#A For all the genes
+# Calculate correlation (Pearson)
+correlation_mf <- cor(cumulative_enc_mxf_filt$log2FoldChange, cumulative_enc_mxf_filt$dn.ds_corrected)
+
+# Plot
+C3_VIII_a = ggplot(cumulative_enc_mxf_filt, aes(x = abs(log2FoldChange), y = dn.ds_corrected, color = mxf )) +
+  geom_point(alpha = 0.6, size = 2.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "black", linetype = "dashed", linewidth = 1) +
+  scale_color_manual(values = c("Male-biased" = "#E41A1C", "Female-biased" = "blue", "sex-neutral" = "grey")) +
+  labs(
+    x = expression("Expression Divergence (|log"[2]*" Fold Change|)"),
+    y = expression(d[n]/d[s]),
+    title = "Sex-biased Genes I"
+  ) +
+  annotate("text", x = max(cumulative_enc_mxf_filt$log2FoldChange) * 0.7, 
+           y = max(cumulative_enc_mxf_filt$dn.ds_corrected) * 0.9, 
+           label = paste("r =", round(correlation_mf, 2)), 
+           size = 5, color = "black") +
+  theme_minimal(base_size = 16)
+
+#B For Tissue-biased genes
+# Filter out 'Conserved' genes
+non_conserved_mf <- cumulative_enc_mxf_filt[cumulative_enc_mxf_filt$mxf != "sex-neutral", ]
+
+# Remove NAs
+plot_data_mf <- na.omit(non_conserved_mf[, c("dn.ds_corrected", "log2FoldChange", "mxf")])
+
+# Calculate correlation (Pearson)
+correlation_mf <- cor(plot_data_mf$log2FoldChange, plot_data_mf$dn.ds_corrected)
+
+# Plot
+C3_VIII_b <- ggplot(plot_data_mf, aes(x = abs(log2FoldChange), y = dn.ds_corrected, color = mxf)) +
+  geom_point(alpha = 0.6, size = 2.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "black", linetype = "dashed", linewidth = 1) +
+  scale_color_manual(values = c("Male-biased" = "#E41A1C", "Female-biased" = "blue")) +
+  labs(
+    x = expression("Expression Divergence (|log"[2]*" Fold Change)|"),
+    y = expression(d[n]/d[s]),
+    title = "Sex-biased genes II"
+  ) +
+  annotate("text", x = max(plot_data_mf$log2FoldChange) * 0.7, 
+           y = max(plot_data_mf$dn.ds_corrected) * 0.9, 
+           label = paste("r =", round(correlation_mf, 2)), 
+           size = 5, color = "black") +
+  theme_minimal(base_size = 16)
+
+
+```
+
+##D. Organizing plots 
+```{r, warning=FALSE}
+# Arrange plots in a single panel
+sp_biased_dnds_enc <- A3_IV_a + A3_V_a + A3_VI_a + A3_VII_a + plot_layout(ncol = 2)
+ts_biased_dnds_enc <- B3_III_a + B3_IV_a + B3_V_a + B3_VI_a + plot_layout(ncol = 2)
+sex_biased_dnds_enc <- C3_III_a + C3_IV_a + C3_V_a + C3_VI_a + plot_layout(ncol = 2)
+expvsdnds_biplots = A3_IX_a + A3_IX_b + B3_VIII_a + B3_VIII_b + C3_VIII_a + C3_VIII_b + plot_layout(ncol = 3)
+
+# Saving as pdf
+ggsave("../3-Output/DEGAnalysis/species_biased_dnds_enc.pdf", plot = sp_biased_dnds_enc, width = 34, height = 15)
+ggsave("../3-Output/DEGAnalysis/tissue_biased_dnds_enc.pdf", plot = ts_biased_dnds_enc, width = 34, height = 15)
+ggsave("../3-Output/DEGAnalysis/sex_biased_dnds_enc.pdf", plot = sex_biased_dnds_enc, width = 34, height = 15)
+ggsave("../3-Output/DEGAnalysis/expvsdnds_biplots.pdf", plot = expvsdnds_biplots, width = 34, height = 15)
+
+#Saving as png
+ggsave("../3-Output/DEGAnalysis/species_biased_dnds_enc.png", plot = sp_biased_dnds_enc, width = 34, height = 15)
+ggsave("../3-Output/DEGAnalysis/tissue_biased_dnds_enc.png", plot = ts_biased_dnds_enc, width = 34, height = 15)
+ggsave("../3-Output/DEGAnalysis/sex_biased_dnds_enc.png", plot = sex_biased_dnds_enc, width = 34, height = 15)
+ggsave("../3-Output/DEGAnalysis/expvsdnds_biplots.png", plot = expvsdnds_biplots, width = 34, height = 15)
+
+```
+
+```{r}
+# Arrange plots in a single panel FOR FIG 4
+cumulative_exp_dnds_enc <- A3_IV_a + A3_VI_a + B1_IV_a +
+  C3_III_a + C3_V_a + C1_III_a +
+  B3_III_a + B3_V_a + D1_III_a + plot_layout(ncol = 3)
+
+
+# Saving as pdf
+ggsave("../3-Output/DEGAnalysis/cumulative_exp_dnds_enc.pdf", plot = cumulative_exp_dnds_enc, width = 34, height = 15)
+
+#Saving as png
+ggsave("../3-Output/DEGAnalysis/cumulative_exp_dnds_enc.png", plot = cumulative_exp_dnds_enc, width = 34, height = 15)
+
+```
+
+
+#4 Analysis for Species-specific genes
+##A Overall disribution of species-specific genes
+```{r}
+#Load abundance data
+combined_speciesgenes = read.table("../3-Output/DEGAnalysis/combined_speciesspecificgenes.txt", fill = TRUE)
+combined_speciesgenes = combined_speciesgenes %>% 
+  rename(Bias = V1, genes_counts = V2, Species = V3, Proportion = V4 )
+
+#Based on number of genes
+A4_I_a = ggplot(combined_speciesgenes, aes(x = combined_speciesgenes$Species, y = combined_speciesgenes$genes_counts, fill = combined_speciesgenes$Bias)) +
+  geom_bar(stat = "identity") +
+  xlab(" ")+ 
+  ylab("Number of genes")+
+  theme(plot.title = element_text(size = 26, face = "bold", hjust = 0.5, vjust = 0.5))+
+  #coord_cartesian(ylim = c(0, 6500))+
+  #scale_fill_manual(values = c( "#afced0", "#4b7d81", "#696967", '#DCDDDF'))+
+  theme(axis.title.y = element_text(size = 14, hjust = 0.5))+
+  theme(axis.text.x = element_text(size = 26,face = "bold", colour = "black"))+
+  theme(axis.text.y = element_text(size = 10))+
+  theme(axis.title.x = element_text(size = 14))+
+  theme(axis.title.y = element_text(size = 20, hjust = 0.5))+
+  theme(axis.text.y = element_text(color="black", size=15))+
+  guides(fill=guide_legend(title=" "))+
+  # scale_colour_brewer(palette = 2)+
+  #scale_x_discrete(limits = c("Conserved","Differentially expressed", "C. nigoni dominant", "Ambiguous"))+ ##reordering character x-axis
+  expand_limits(y=0)+
+  #scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks=seq(0,7500,500))+
+  ggtitle("Species-specific genes")
+
+#Based on proportion of genes
+A4_I_b = ggplot(combined_speciesgenes, aes(x = combined_speciesgenes$Species, y = combined_speciesgenes$Proportion, fill = combined_speciesgenes$Bias)) +
+  geom_bar(stat = "identity") +
+  xlab(" ")+ 
+  ylab("Proportion of genes")+
+  theme(plot.title = element_text(size = 26, face = "bold", hjust = 0.5, vjust = 0.5))+
+  #coord_cartesian(ylim = c(0, 6500))+
+  #scale_fill_manual(values = c( "#afced0", "#4b7d81", "#696967", '#DCDDDF'))+
+  theme(axis.title.y = element_text(size = 14, hjust = 0.5))+
+  theme(axis.text.x = element_text(size = 26,face = "bold", colour = "black"))+
+  theme(axis.text.y = element_text(size = 10))+
+  theme(axis.title.x = element_text(size = 14))+
+  theme(axis.title.y = element_text(size = 20, hjust = 0.5))+
+  theme(axis.text.y = element_text(color="black", size=15))+
+  guides(fill=guide_legend(title=" "))+
+  # scale_colour_brewer(palette = 2)+
+  #scale_x_discrete(limits = c("Conserved","Differentially expressed", "C. nigoni dominant", "Ambiguous"))+ ##reordering character x-axis
+  expand_limits(y=0)+
+  #scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks=seq(0,7500,500))+
+  ggtitle("Species-specific genes")
+
+A4_I_c = ggplot(combined_speciesgenes, aes(x = combined_speciesgenes$Species, y = combined_speciesgenes$genes_counts, fill = combined_speciesgenes$Bias)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  xlab(" ")+ 
+  ylab("Number of genes")+
+  theme(plot.title = element_text(size = 26, face = "bold", hjust = 0.5, vjust = 0.5))+
+  #coord_cartesian(ylim = c(0, 6500))+
+  #scale_fill_manual(values = c( "#afced0", "#4b7d81", "#696967", '#DCDDDF'))+
+  theme(axis.title.y = element_text(size = 14, hjust = 0.5))+
+  theme(axis.text.x = element_text(size = 26,face = "bold", colour = "black"))+
+  theme(axis.text.y = element_text(size = 10))+
+  theme(axis.title.x = element_text(size = 14))+
+  theme(axis.title.y = element_text(size = 20, hjust = 0.5))+
+  theme(axis.text.y = element_text(color="black", size=15))+
+  guides(fill=guide_legend(title=" "))+
+  # scale_colour_brewer(palette = 2)+
+  #scale_x_discrete(limits = c("Conserved","Differentially expressed", "C. nigoni dominant", "Ambiguous"))+ ##reordering character x-axis
+  expand_limits(y=0)+
+  #scale_y_continuous(expand = expansion(mult = c(0, 0.1)), breaks=seq(0,7500,500))+
+  ggtitle("Species-specific genes") +
+  scale_y_continuous(breaks = c(0, 200, 400, 600, 800))
+
+```
+
+##B. Upset plot for C. remanei-specific genes
+```{r B4_I_a}
+# Load required libraries
+# library(UpSetR)
+# library(ComplexHeatmap)
+# library(tibble)
+
+# Create a list of gene names from various results
+genelist_cre <- list(
+  "Sex" = row.names(mxf_res1_cre), 
+  "TSxSex" = row.names(tsxsex_res1_cre),
+  "Tissue" = row.names(gxs_res1_cre)
+)
+
+#library(UpSetR)
+# Generate UpSet plot with specified parameters
+upset_data_cre <- fromList(genelist_cre)
+
+# First UpSet plot with frequency and degree grouping - all gene categories
+B4_I_a = UpSetR::upset(
+  upset_data_cre, 
+  nsets = 12, 
+  nintersects = NA, 
+  order.by = "freq", 
+  group.by = "degree",
+  mainbar.y.label = "Number of Common Genes", 
+  sets.x.label = "Total Number of Genes", 
+  set_size.show = TRUE, 
+  set_size.scale_max = 11000, 
+  set_size.numbers_size = 12, 
+  line.size = 0.5, 
+  point.size = 3
+)
+
+
+###Second upset plot using a different package and extract gene names
+
+##library(ComplexHeatmap)
+# Create a combination matrix for further analysis
+m3_cre <- make_comb_mat(genelist_cre, min_set_size = 1)
+
+# Extract gene names for a specific intersection category
+genes_in_comb_cre <- extract_comb(m3_cre, "000001")
+
+##### Creating Additional UpSet Plots #####
+
+# Plot with default settings
+UpSet(m3_cre)
+
+#Plot upset plot with top 10 gene categories (largest intersection size
+
+#creating data to retain top 10 ctegories
+top_combinations_cre <- comb_size(m3_cre) %>% 
+     sort(decreasing = TRUE) %>% 
+     head(10) %>% 
+     names()
+
+#plotting upset plot
+B4_I_b = UpSet(m3_cre[top_combinations_cre], 
+       comb_order = order(comb_size(m3_cre[top_combinations_cre]), decreasing = TRUE),
+      top_annotation = upset_top_annotation(m3_cre[top_combinations_cre],add_numbers = TRUE, ylim = c(0, 4000)),
+      right_annotation = upset_right_annotation(m3_cre[top_combinations_cre], add_numbers = TRUE))
+
+```
+
+##C.  Tissue-biased Cremanei specific genes
+```{r C4_I_a}
+gxs_res_cre = read.csv("../3-Output/DEGAnalysis/gonadxsoma_genes_crespecificgenes.csv", header = TRUE)
+
+# Rename levels of Var2 directly in your data frame 
+gxs_res_cre$gxs <- factor(gxs_res_cre$gxs, 
+                             levels = c("-1", "0", "1"),  # Old names
+                             labels = c("Gonad-biased", "Tissue-neutral", "Soma-biased"))  # New names
+#Expression Divergence
+C4_I_a = ggplot(gxs_res_cre, aes(y = gxs, x = abs(log2FoldChange))) +
+  geom_density_ridges(aes(fill = gxs), scale = 1, color = NA, alpha = 0.7, show.legend = FALSE) +
+  geom_boxplot(alpha = 0.5, outlier.shape = NA, width = 0.2) +
+  # Define custom colors for 'crexclat' (replace with your actual categories)
+  scale_fill_manual(values = c("Gonad-biased" = "red", "Tissue-neutral" = "blue", "Soma-biased" = "green")) +
+  xlab(expression(paste("log"[2], " expression divergence"))) +
+  ylab("") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 26, face = "bold", hjust = 0.5),
+    axis.title.y = element_text(size = 18, hjust = 0.5),
+    axis.title.x = element_text(size = 18),
+    axis.text.x = element_text(size = 16, face = "bold", colour = "black"),
+    axis.text.y = element_text(size = 16, color = "black")) +
+  ggtitle("Cre") +
+  scale_x_continuous(breaks = c(0, 2, 4, 6, 8, 10))  # Custom x-axis ticks
+
+```
+
+##D. Cremanei specific genes, Sex-biased
+```{r D4_I_a}
+mxf_res_cre = read.csv("../3-Output/DEGAnalysis/mxf_genes_crespecificgenes.csv", header = TRUE)
+
+# Rename levels of Var2 directly in your data frame 
+mxf_res_cre$mxf_cre <- factor(mxf_res_cre$mxf_cre, 
+                             levels = c("-1", "0", "1"),  # Old names
+                             labels = c("Female-biased", "Sex-neutral", "Male-biased"))  # New names
+#Expression Divergence
+D4_I_a = ggplot(mxf_res_cre, aes(y = mxf_cre, x = abs(log2FoldChange))) +
+  geom_density_ridges(aes(fill = mxf_cre), scale = 1, color = NA, alpha = 0.7, show.legend = FALSE) +
+  geom_boxplot(alpha = 0.5, outlier.shape = NA, width = 0.2) +
+  # Define custom colors for 'crexclat' (replace with your actual categories)
+  scale_fill_manual(values = c("Female-biased" = "red", "Sex-neutral" = "blue", "Male-biased" = "green")) +
+  xlab(expression(paste("log"[2], " expression divergence"))) +
+  ylab("") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 26, face = "bold", hjust = 0.5),
+    axis.title.y = element_text(size = 18, hjust = 0.5),
+    axis.title.x = element_text(size = 18),
+    axis.text.x = element_text(size = 16, face = "bold", colour = "black"),
+    axis.text.y = element_text(size = 16, color = "black")) + 
+  ggtitle("Cre") +
+  scale_x_continuous(breaks = c(0, 2, 4, 6, 8, 10))  # Custom x-axis ticks
+
+```
+
+##E. Upset plot for C. latens-specific genes
+```{r}
+# Load required libraries
+# library(UpSetR)
+# library(ComplexHeatmap)
+# library(tibble)
+
+# Create a list of gene names from various results
+genelist_clat <- list(
+  "Sex" = row.names(mxf_res1_clat), 
+  "TSxSex" = row.names(tsxsex_res1_clat),
+  "Tissue" = row.names(gxs_res1_clat)
+)
+
+#library(UpSetR)
+# Generate UpSet plot with specified parameters
+upset_data_clat <- fromList(genelist_clat)
+
+# First UpSet plot with frequency and degree grouping - all gene categories
+ E4_I_a = UpSetR::upset(
+  upset_data_clat, 
+  nsets = 12, 
+  nintersects = NA, 
+  order.by = "freq", 
+  group.by = "degree",
+  mainbar.y.label = "Number of Common Genes", 
+  sets.x.label = "Total Number of Genes", 
+  set_size.show = TRUE, 
+  set_size.scale_max = 11000, 
+  set_size.numbers_size = 12, 
+  line.size = 0.5, 
+  point.size = 3
+)
+
+
+###Second upset plot using a different package and extract gene names
+
+##library(ComplexHeatmap)
+# Create a combination matrix for further analysis
+m3_clat <- make_comb_mat(genelist_clat, min_set_size = 1)
+
+# Extract gene names for a specific intersection category
+genes_in_comb_clat <- extract_comb(m3_clat, "000001")
+
+##### Creating Additional UpSet Plots #####
+
+# Plot with default settings
+UpSet(m3_clat)
+
+#Plot upset plot with top 10 gene categories (largest intersection size
+
+#creating data to retain top 10 ctegories
+top_combinations_clat <- comb_size(m3_clat) %>% 
+     sort(decreasing = TRUE) %>% 
+     head(10) %>% 
+     names()
+
+#plotting upset plot
+E4_I_b = UpSet(m3_clat[top_combinations_clat], 
+       comb_order = order(comb_size(m3_clat[top_combinations_clat]), decreasing = TRUE),
+      top_annotation = upset_top_annotation(m3_clat[top_combinations_clat],add_numbers = TRUE, ylim = c(0, 4000)),
+      right_annotation = upset_right_annotation(m3_clat[top_combinations_clat], add_numbers = TRUE))
+
+```
+
+
+##F.  Tissue-biased Clatens specific genes
+```{r F4_I_a}
+gxs_res_clat = read.csv("../3-Output/DEGAnalysis/gonadxsoma_genes_clatspecificgenes.csv", header = TRUE)
+
+# Rename levels of Var2 directly in your data frame 
+gxs_res_clat$gxs <- factor(gxs_res_clat$gxs, 
+                             levels = c("-1", "0", "1"),  # Old names
+                             labels = c("Gonad-biased", "Tissue-neutral", "Soma-biased"))  # New names
+#Expression Divergence
+F4_I_a = ggplot(gxs_res_clat, aes(y = gxs, x = abs(log2FoldChange))) +
+  geom_density_ridges(aes(fill = gxs), scale = 1, color = NA, alpha = 0.7, show.legend = FALSE) +
+  geom_boxplot(alpha = 0.5, outlier.shape = NA, width = 0.2) +
+  # Define custom colors for 'crexclat' (replace with your actual categories)
+  scale_fill_manual(values = c("Gonad-biased" = "red", "Tissue-neutral" = "blue", "Soma-biased" = "green")) +
+  xlab(expression(paste("log"[2], " expression divergence"))) +
+  ylab("") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 26, face = "bold", hjust = 0.5),
+    axis.title.y = element_text(size = 18, hjust = 0.5),
+    axis.title.x = element_text(size = 18),
+    axis.text.x = element_text(size = 16, face = "bold", colour = "black"),
+    axis.text.y = element_text(size = 16, color = "black")) + 
+  ggtitle("Clat") 
+  scale_x_continuous(breaks = c(0, 2, 4, 6, 8, 10)) 
+
+```
+
+##G.  Sex-biased Clatens specific genes
+```{r G4_I_a}
+mxf_res_clat = read.csv("../3-Output/DEGAnalysis/mxf_genes_clatspecificgenes.csv", header = TRUE)
+
+# Rename levels of Var2 directly in your data frame 
+mxf_res_clat$mxf <- factor(mxf_res_clat$mxf, 
+                             levels = c("-1", "0", "1"),  # Old names
+                             labels = c("Female-biased", "Sex-neutral", "Male-biased"))  # New names
+#Expression Divergence
+G4_I_a = ggplot(mxf_res_clat, aes(y = mxf, x = abs(log2FoldChange))) +
+  geom_density_ridges(aes(fill = mxf), scale = 1, color = NA, alpha = 0.7, show.legend = FALSE) +
+  geom_boxplot(alpha = 0.5, outlier.shape = NA, width = 0.2) +
+  # Define custom colors for 'crexclat' (replace with your actual categories)
+  scale_fill_manual(values = c("Female-biased" = "red", "Sex-neutral" = "blue", "Male-biased" = "green")) +
+  xlab(expression(paste("log"[2], " expression divergence"))) +
+  ylab("") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 26, face = "bold", hjust = 0.5),
+    axis.title.y = element_text(size = 18, hjust = 0.5),
+    axis.title.x = element_text(size = 18),
+    axis.text.x = element_text(size = 16, face = "bold", colour = "black"),
+    axis.text.y = element_text(size = 16, color = "black")) +
+  ggtitle("Clat") +
+  scale_x_continuous(breaks = c(0, 2, 4, 6, 8, 10)) 
+
+```
+
+
+##H. Organizing plots
+
+```{r}
+# Arrange plots in a single panel for fig 5
+chr_crexclat <- A4_I_a + A4_I_b + A4_I_c + plot_layout(ncol = 2)
+tb_sb_crexclat <- C4_I_a + D4_I_a + F4_I_a + G4_I_a + plot_layout(ncol = 2)
+
+# Saving as pdf
+ggsave("../3-Output/DEGAnalysis/chr_crexclat.pdf", plot = chr_crexclat, width = 34, height = 15)
+ggsave("../3-Output/DEGAnalysis/tb_sb_crexclat.pdf", plot = tb_sb_crexclat, width = 34, height = 15)
+
+#Saving as png
+ggsave("../3-Output/DEGAnalysis/chr_crexclat.png", plot = chr_crexclat, width = 34, height = 15)
+ggsave("../3-Output/DEGAnalysis/tb_sb_crexclat.png", plot = tb_sb_crexclat, width = 34, height = 15)
+
+```
+
+
+#5 Performing stats to check is average log fold change is significantly different across different groups
+##A Orthologous species-biased genes
+```{r}
+# Fit a GLM model (normal distribution with identity link function, which is default)
+cumulative_enc_deseq2_filt
+sp_ortho_glm <- glm( abs(cumulative_enc_deseq2_filt$log2FoldChange) ~ cumulative_enc_deseq2_filt$crexclat, data = cumulative_enc_deseq2_filt, family = gaussian())
+
+# Use the emmeans package to perform pairwise comparisons
+
+sp_ortho_emm <- emmeans(sp_ortho_glm, pairwise ~ crexclat)
+summary(sp_ortho_emm)
+```
+
+##B Orthologous sex-biased genes
+```{r}
+# Fit a GLM model (normal distribution with identity link function, which is default)
+cumulative_enc_mxf_filt
+mxf_ortho_glm <- glm( abs(cumulative_enc_mxf_filt$log2FoldChange) ~ cumulative_enc_mxf_filt$mxf, data = cumulative_enc_mxf_filt, family = gaussian())
+
+# Use the emmeans package to perform pairwise comparisons
+
+mxf_ortho_emm <- emmeans(mxf_ortho_glm, pairwise ~ mxf)
+summary(mxf_ortho_emm)
+
+```
+
+##C Orthologous tissue-biased genes
+```{r}
+# Fit a GLM model (normal distribution with identity link function, which is default)
+cumulative_enc_gxs_filt
+gxs_ortho_glm <- glm( abs(cumulative_enc_gxs_filt$log2FoldChange) ~ cumulative_enc_gxs_filt$gxs, data = cumulative_enc_gxs_filt, family = gaussian())
+
+# Use the emmeans package to perform pairwise comparisons, posthoc 
+
+gxs_ortho_emm <- emmeans(gxs_ortho_glm, pairwise ~ gxs)
+summary(gxs_ortho_emm)
+
+```
+
+##D Cre-specific sex-biased genes
+```{r}
+
+mxf_res_cre
+# Fit a GLM model (normal distribution with identity link function, which is default)
+mxf_res_cre
+mxf_res_cre_glm <- glm( abs(mxf_res_cre$log2FoldChange) ~ mxf_res_cre$mxf, data = mxf_res_cre, family = gaussian())
+
+# Use the emmeans package to perform pairwise comparisons
+
+mxf_res_cre_emm <- emmeans(mxf_res_cre_glm, pairwise ~ mxf_cre)
+summary(mxf_res_cre_emm)
+```
+
+##E Cre-specific tissue-biased genes
+```{r}
+gxs_res_cre
+
+# Fit a GLM model (normal distribution with identity link function, which is default)
+gxs_res_cre
+gxs_res_cre_glm <- glm( abs(gxs_res_cre$log2FoldChange) ~ gxs_res_cre$gxs, data = gxs_res_cre, family = gaussian())
+
+# Use the emmeans package to perform pairwise comparisons
+
+gxs_res_cre_emm <- emmeans(gxs_res_cre_glm, pairwise ~ gxs)
+summary(gxs_res_cre_emm)
+```
+
+
+##F Clat-specific sex-biased genes
+```{r}
+
+# Fit a GLM model (normal distribution with identity link function, which is default)
+mxf_res_clat
+mxf_res_clat_glm <- glm(abs(mxf_res_clat$log2FoldChange) ~ mxf_res_clat$mxf, data = mxf_res_clat, family = gaussian())
+
+# Use the emmeans package to perform pairwise comparisons
+mxf_res_clat_emm <- emmeans(mxf_res_clat_glm, pairwise ~ mxf)
+summary(mxf_res_clat_emm)
+```
+
+##G Clat-specific tissue-biased genes
+
+```{r}
+gxs_res_clat
+# Fit a GLM model (normal distribution with identity link function, which is default)
+gxs_res_clat
+gxs_res_clat_glm <- glm( abs(gxs_res_clat$log2FoldChange) ~ gxs_res_clat$gxs, data = gxs_res_clat, family = gaussian())
+
+# Use the emmeans package to perform pairwise comparisons
+
+gxs_res_clat_emm <- emmeans(gxs_res_clat_glm, pairwise ~ gxs)
+summary(gxs_res_clat_emm)
+```
+
+
+#5 Performing stats to check is average dn/ds is significantly different across different groups
+##A Orthologous species-biased genes
+
+```{r}
+# Fit a GLM model (Gamma distribution, log link)
+cumulative_enc_deseq2_filt$logdnds <- (cumulative_enc_deseq2_filt$dn.ds_corrected + 1e-5)
+sp_ortho_glm_dnds <- glm(cumulative_enc_deseq2_filt$logdnds ~ cumulative_enc_deseq2_filt$crexclat, 
+                  data = cumulative_enc_deseq2_filt, 
+                  family = Gamma(link = "log"))
+
+# View the model summary
+summary(sp_ortho_glm_dnds)
+
+# Perform pairwise comparisons
+sp_ortho_emm_dnds <- emmeans(sp_ortho_glm_dnds, pairwise ~ crexclat)
+
+# Display the results
+summary(sp_ortho_emm_dnds)
+```
+
+
+##B Orthologous sex-biased genes
+```{r}
+# Fit a GLM model (normal distribution with identity link function, which is default)
+cumulative_enc_mxf_filt
+cumulative_enc_mxf_filt$logdnds <- (cumulative_enc_mxf_filt$dn.ds_corrected + 1e-5)
+mxf_ortho_glm_dnds <- glm(cumulative_enc_mxf_filt$logdnds ~ cumulative_enc_mxf_filt$mxf, data = cumulative_enc_mxf_filt, family = Gamma(link = "log"))
+
+# Use the emmeans package to perform pairwise comparisons
+
+mxf_ortho_emm_dnds <- emmeans(mxf_ortho_glm_dnds, pairwise ~ mxf)
+summary(mxf_ortho_emm_dnds)
+
+```
+
+##C Orthologous tissue-biased genes
+```{r}
+# Fit a GLM model (normal distribution with identity link function, which is default)
+cumulative_enc_gxs_filt
+cumulative_enc_gxs_filt$logdnds <- (cumulative_enc_gxs_filt$dn.ds_corrected + 1e-5)
+gxs_ortho_glm_dnds <- glm( abs(cumulative_enc_gxs_filt$logdnds) ~ cumulative_enc_gxs_filt$gxs, data = cumulative_enc_gxs_filt, family = Gamma(link = "log"))
+
+# Use the emmeans package to perform pairwise comparisons, posthoc 
+
+gxs_ortho_emm_dnds <- emmeans(gxs_ortho_glm_dnds, pairwise ~ gxs)
+summary(gxs_ortho_emm_dnds)
+
+```
+
+
+
+
+
+
 

@@ -404,7 +404,7 @@ modules.mem.measure.pval_cre[1:5, 1:5] # depending on the p valu , we can identi
 
 View(t(modules.mem.measure.pval_cre))
 
-##Calculating gene significance associated with difference in species
+##Calculating gene significance associated with difference in sex
 
 gene.sig.cor_cre = cor(norma.counts_cre, sex.out_cre, use = "p")
 gene.sig.cor.pval_cre = corPvalueStudent(gene.sig.cor_cre, nSample_cre)

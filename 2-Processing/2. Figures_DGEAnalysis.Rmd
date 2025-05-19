@@ -901,6 +901,95 @@ A3_VI_a = ggplot(cumulative_enc_deseq2_filt, aes(y=crexclat, x=dn.ds_corrected))
     axis.title.x = element_text(size = 18),
     axis.text.x = element_text(size = 16, face = "bold", colour = "black"),
     axis.text.y = element_text(size = 16, color = "black"))
+##log transformed plots
+
+# full data
+  full_data_crexclat <- cumulative_enc_deseq2_filt
+  
+  # Filtered for density only
+  filtered_data_crexclat <- full_data_crexclat %>% filter(dn.ds_corrected > 0)
+  
+ A3_VI_b =  ggplot() +
+    # Density ridges (filtered data)
+    geom_density_ridges(
+      data = filtered_data_crexclat,
+      aes(x = dn.ds_corrected, y = crexclat, fill = crexclat),
+      scale = 1, color = NA, alpha = 0.7, show.legend = FALSE
+    ) + # Boxplot (unfiltered data)
+    geom_boxplot(
+      data = full_data_crexclat,
+      aes(x = dn.ds_corrected, y = crexclat),
+      alpha = 0.5, outlier.shape = NA, width = 0.2
+    ) + # Manual fill color (used for ridges)
+    scale_fill_manual(values = c("Higher in Cre" = "red", "Conserved" = "blue", "Higher in Clat" = "green")) +
+    xlab(expression(paste(italic("K")[a], "/", italic("K")[s], "'"))) +
+    ylab("") +
+    theme_minimal() +
+    scale_x_log10(
+      labels = label_log(digits = 2),
+      breaks = c(1e-10, 1e-8, 1e-6, 1e-4, 1e-2, 1, 1e2),
+      limits = c(0.0001, 100)
+    ) +
+   annotation_logticks(sides = "tb") +
+    theme(
+      plot.title = element_text(size = 26, face = "bold", hjust = 0.5),
+      axis.title.y = element_text(size = 18, hjust = 0.5),
+      axis.title.x = element_text(size = 18),
+      axis.text.x = element_text(size = 16, face = "bold", colour = "black"),
+      axis.text.y = element_text(size = 16, color = "black")
+    )
+   
+ 
+ ##general bar and density pltos to identify zero adn non-zero values
+ 
+ # Filter out zero or negative values (log10 undefined)
+  df <- cumulative_enc_deseq2_filt %>% filter(dn.ds_corrected > 0)
+  
+  A3_VI_c = ggplot(df, aes(x = dn.ds_corrected)) +
+    geom_histogram(binwidth = 0.1, fill = "steelblue", color = "black") +
+    stat_bin(binwidth = 0.1, geom = "text", aes(label = after_stat(count)), 
+             vjust = -0.5, size = 3, color = "black") +
+    scale_x_log10(
+      labels = label_log(digits = 2),
+      breaks = c(1e-10, 1e-8, 1e-6, 1e-4, 1e-2, 1, 1e2)
+    ) +
+    coord_cartesian(ylim = c(0, 1500)) +
+    scale_y_continuous(expand = expansion(mult = c(0, 0))) +
+    theme_minimal() +
+    labs(title = "Number of Genes Across dN/dS Ranges (log10 scale)",
+         x = "log10(dN/dS ratio)",
+         y = "Number of genes")
+  
+  # Saving as pdf
+  # ggsave("3-Output/densityplot_for_dndsvalues.pdf", width = 15, height = 15)
+  # 
+  # #Saving as png
+  # ggsave("3-Output/densityplot_for_dndsvalues.png", width = 15, height = 15)
+  # 
+  
+  
+  #Density plot for only dn/ds raw values
+  A3_VI_d = ggplot(cumulative_enc_deseq2_filt, aes(x = dn.ds_corrected)) +
+    geom_histogram(binwidth = 0.1, fill = "steelblue", color = "black") +
+    stat_bin(binwidth = 0.1, geom = "text", aes(label = after_stat(count)), 
+             vjust = -0.5, size = 3, color = "black") +
+    coord_cartesian(ylim = c(0, 6000)) +
+    scale_y_continuous(expand = expansion(mult = c(0, 0))) +
+    scale_x_continuous(breaks = seq(0, max(cumulative_enc_deseq2_filt$dn.ds_corrected, na.rm = TRUE), by = 0.1)) +
+    theme_minimal() +
+    labs(title = "Number of Genes Across dN/dS Ranges",
+         x = "dN/dS ratio",
+         y = "Number of genes")
+  
+  # # Saving as pdf
+  # ggsave("3-Output/raw_densityplot_for_dndsvalues.pdf", width = 15, height = 15)
+  # 
+  # #Saving as png
+  # ggsave("3-Output/raw_densityplot_for_dndsvalues.png", width = 15, height = 15)
+  # 
+  
+ 
+ 
 ```
 
 ###VII. Violin plot for ENC by species-bias
@@ -912,6 +1001,8 @@ A3_VII_a = ggplot(cumulative_enc_deseq2_filt, aes(x = as.character(crexclat), y 
        y = "ENC") +
   stat_summary(fun = mean, geom = "point", shape = 21, size = 2, 
                fill = "white", color = "black", stroke = 1) +
+  stat_summary(fun = mean, geom = "text", aes(label = round(..y.., 1)), 
+               vjust = -1.5, size = 5, color = "black") +
   #scale_x_discrete(labels = c("-1" = "C.latens-biased", "0" = "Conserved", "1" = "C. remanei-biased"))+
   ylim(0, 80)+
   theme_minimal() +
@@ -920,9 +1011,7 @@ A3_VII_a = ggplot(cumulative_enc_deseq2_filt, aes(x = as.character(crexclat), y 
     axis.title.y = element_text(size = 18, hjust = 0.5),
     axis.title.x = element_text(size = 18),
     axis.text.x = element_text(size = 16, face = "bold", colour = "black"),
-    axis.text.y = element_text(size = 16, color = "black")
-    
-  )
+    axis.text.y = element_text(size = 16, color = "black"))
 ```
 
 ###VIII. ENC vs dn/ds
@@ -1170,6 +1259,97 @@ B3_V_a = ggplot(cumulative_enc_gxs_filt, aes(y=gxs, x=dn.ds_corrected)) +
     axis.title.x = element_text(size = 18),
     axis.text.x = element_text(size = 16, face = "bold", colour = "black"),
     axis.text.y = element_text(size = 16, color = "black"))
+
+#log transformed plots
+# full data
+  full_data_gxs <- cumulative_enc_gxs_filt
+  
+  # Filtered for density only
+  filtered_data_gxs <- full_data_gxs %>% filter(dn.ds_corrected > 0)
+  
+  # Used full data for boxplots and calculating the median in the figure, and filtered data for density plots to omit infinite value
+B3_V_b = ggplot() +
+    # Density ridges (filtered data)
+    geom_density_ridges(
+      data = filtered_data_gxs,
+      aes(x = dn.ds_corrected, y = gxs, fill = gxs),
+      scale = 1, color = NA, alpha = 0.7, show.legend = FALSE
+    ) + # Boxplot (unfiltered data)
+    geom_boxplot(
+      data = full_data_gxs,
+      aes(x = dn.ds_corrected, y = gxs),
+      alpha = 0.5, outlier.shape = NA, width = 0.2
+    ) + # Manual fill color (used for ridges)
+    scale_fill_manual(values = c("Gonad-biased" = "red", "Tissue-neutral" = "blue", "Soma-biased" = "green")) +
+    xlab(expression(paste(italic("K")[a], "/", italic("K")[s], "'"))) +
+    ylab("") +
+    theme_minimal() +
+    scale_x_log10(
+      labels = label_log(digits = 2),
+      breaks = c(1e-10, 1e-8, 1e-6, 1e-4, 1e-2, 1, 1e2),
+      limits = c(0.0001, 100)
+    ) +
+   annotation_logticks(sides = "tb") +
+    theme(
+      plot.title = element_text(size = 26, face = "bold", hjust = 0.5),
+      axis.title.y = element_text(size = 18, hjust = 0.5),
+      axis.title.x = element_text(size = 18),
+      axis.text.x = element_text(size = 16, face = "bold", colour = "black"),
+      axis.text.y = element_text(size = 16, color = "black")
+    )
+
+  
+  ##Plotting for mxf based on log transfromed scale
+  
+  max(cumulative_enc_gxs_filt$dn.ds_corrected)
+  min(cumulative_enc_gxs_filt$dn.ds_corrected)
+  
+  
+  # Filter out zero or negative values (log10 undefined)
+  df_gxs <- cumulative_enc_gxs_filt %>% filter(dn.ds_corrected > 0)
+  
+ B3_V_c =  ggplot(df_gxs, aes(x = dn.ds_corrected)) +
+    geom_histogram(binwidth = 0.1, fill = "steelblue", color = "black") +
+    stat_bin(binwidth = 0.1, geom = "text", aes(label = after_stat(count)), 
+             vjust = -0.5, size = 3, color = "black") +
+    scale_x_log10(
+      labels = label_log(digits = 2),
+      breaks = c(1e-10, 1e-8, 1e-6, 1e-4, 1e-2, 1, 1e2)
+    ) +
+    coord_cartesian(ylim = c(0, 1500)) +
+    scale_y_continuous(expand = expansion(mult = c(0, 0))) +
+    theme_minimal() +
+    labs(title = "Number of Genes Across dN/dS Ranges (log10 scale)",
+         x = "log10(dN/dS ratio)",
+         y = "Number of genes")
+  
+  # # Saving as pdf
+  # ggsave("3-Output/densityplot_for_dndsvalues.pdf", width = 15, height = 15)
+  # 
+  # #Saving as png
+  # ggsave("3-Output/densityplot_for_dndsvalues.png", width = 15, height = 15)
+  
+  
+  
+  #Density plot for only dn/ds raw values
+ B3_V_d =  ggplot(cumulative_enc_gxs_filt, aes(x = dn.ds_corrected)) +
+    geom_histogram(binwidth = 0.1, fill = "steelblue", color = "black") +
+    stat_bin(binwidth = 0.1, geom = "text", aes(label = after_stat(count)), 
+             vjust = -0.5, size = 3, color = "black") +
+    coord_cartesian(ylim = c(0, 6000)) +
+    scale_y_continuous(expand = expansion(mult = c(0, 0))) +
+    scale_x_continuous(breaks = seq(0, max(cumulative_enc_deseq2_filt$dn.ds_corrected, na.rm = TRUE), by = 0.1)) +
+    theme_minimal() +
+    labs(title = "Number of Genes Across dN/dS Ranges",
+         x = "dN/dS ratio",
+         y = "Number of genes")
+  
+  # Saving as pdf
+  # ggsave("3-Output/raw_densityplot_for_dndsvalues.pdf", width = 15, height = 15)
+  # 
+  # #Saving as png
+  # ggsave("3-Output/raw_densityplot_for_dndsvalues.png", width = 15, height = 15)
+  
 ```
 
 ###VI. Violin plot for ENC by tissue-bias
@@ -1181,6 +1361,8 @@ B3_VI_a = ggplot(cumulative_enc_gxs_filt, aes(x = as.character(gxs), y = ENC)) +
        y = "ENC") +
   stat_summary(fun = mean, geom = "point", shape = 21, size = 2, 
                fill = "white", color = "black", stroke = 1) +
+  stat_summary(fun = mean, geom = "text", aes(label = round(..y.., 1)), 
+               vjust = -1.5, size = 5, color = "black") +
   #scale_x_discrete(labels = c("-1" = "Gonad-biased", "0" = "Tissue-neutral", "1" = "Soma-biased"))+
   ylim(0, 80)+
   theme_minimal() +
@@ -1443,6 +1625,97 @@ C3_V_a = ggplot(cumulative_enc_mxf_filt, aes(y=mxf, x=dn.ds_corrected)) +
     axis.title.x = element_text(size = 18),
     axis.text.x = element_text(size = 16, face = "bold", colour = "black"),
     axis.text.y = element_text(size = 16, color = "black"))
+
+##Plotting log transformed plot
+# full data
+  full_data_mxf <- cumulative_enc_mxf_filt
+  
+  # Filtered for density only
+  filtered_data_mxf <- full_data_mxf %>% filter(dn.ds_corrected > 0)
+  
+  C3_V_b = ggplot() +
+    # Density ridges (filtered data)
+    geom_density_ridges(
+      data = filtered_data_mxf,
+      aes(x = dn.ds_corrected, y = mxf, fill = mxf),
+      scale = 1, color = NA, alpha = 0.7, show.legend = FALSE
+    ) + # Boxplot (unfiltered data)
+    geom_boxplot(
+      data = full_data_mxf,
+      aes(x = dn.ds_corrected, y = mxf),
+      alpha = 0.5, outlier.shape = NA, width = 0.2
+    ) + # Manual fill color (used for ridges)
+    scale_fill_manual(values = c("Female-biased" = "red", "sex-neutral" = "blue", "Male-biased" = "green")) +
+    xlab(expression(paste(italic("K")[a], "/", italic("K")[s], "'"))) +
+    ylab("") +
+    theme_minimal() +
+    scale_x_log10(
+      labels = label_log(digits = 2),
+      breaks = c(1e-10, 1e-8, 1e-6, 1e-4, 1e-2, 1, 1e2),
+      limits = c(0.0001, 100)
+    ) +
+   annotation_logticks(sides = "tb") +
+    theme(
+      plot.title = element_text(size = 26, face = "bold", hjust = 0.5),
+      axis.title.y = element_text(size = 18, hjust = 0.5),
+      axis.title.x = element_text(size = 18),
+      axis.text.x = element_text(size = 16, face = "bold", colour = "black"),
+      axis.text.y = element_text(size = 16, color = "black")
+    )
+
+  ##general histograms to know zero and non-zero values
+  
+##Plotting for mxf based on log transfromed scale
+
+max(cumulative_enc_mxf_filt$dn.ds_corrected)
+min(cumulative_enc_mxf_filt$dn.ds_corrected)
+
+
+# Filter out zero or negative values (log10 undefined)
+df_mxf <- cumulative_enc_mxf_filt %>% filter(dn.ds_corrected > 0)
+  
+  C3_V_c = ggplot(df_mxf, aes(x = dn.ds_corrected)) +
+  geom_histogram(binwidth = 0.1, fill = "steelblue", color = "black") +
+  stat_bin(binwidth = 0.1, geom = "text", aes(label = after_stat(count)), 
+           vjust = -0.5, size = 3, color = "black") +
+  scale_x_log10(
+    labels = label_log(digits = 2),
+    breaks = c(1e-10, 1e-8, 1e-6, 1e-4, 1e-2, 1, 1e2)
+  ) +
+  coord_cartesian(ylim = c(0, 1500)) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0))) +
+  theme_minimal() +
+  labs(title = "Number of Genes Across dN/dS Ranges (log10 scale)",
+       x = "log10(dN/dS ratio)",
+       y = "Number of genes")
+
+# # Saving as pdf
+# ggsave("3-Output/densityplot_for_dndsvalues.pdf", width = 15, height = 15)
+# 
+# #Saving as png
+# ggsave("3-Output/densityplot_for_dndsvalues.png", width = 15, height = 15)
+
+
+
+#Density plot for only dn/ds raw values
+C3_V_d = ggplot(cumulative_enc_mxf_filt, aes(x = dn.ds_corrected)) +
+  geom_histogram(binwidth = 0.1, fill = "steelblue", color = "black") +
+  stat_bin(binwidth = 0.1, geom = "text", aes(label = after_stat(count)), 
+           vjust = -0.5, size = 3, color = "black") +
+  coord_cartesian(ylim = c(0, 6000)) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0))) +
+  scale_x_continuous(breaks = seq(0, max(cumulative_enc_deseq2_filt$dn.ds_corrected, na.rm = TRUE), by = 0.1)) +
+  theme_minimal() +
+  labs(title = "Number of Genes Across dN/dS Ranges",
+       x = "dN/dS ratio",
+       y = "Number of genes")
+
+# Saving as pdf
+# ggsave("3-Output/raw_densityplot_for_dndsvalues.pdf", width = 15, height = 15)
+# 
+# #Saving as png
+# ggsave("3-Output/raw_densityplot_for_dndsvalues.png", width = 15, height = 15)
+
 ```
 
 ###VI. Violin plot for ENC by sex-bias
@@ -1454,6 +1727,8 @@ C3_VI_a = ggplot(cumulative_enc_mxf_filt, aes(x = as.character(mxf), y = ENC)) +
        y = "ENC") +
   stat_summary(fun = mean, geom = "point", shape = 21, size = 2, 
                fill = "white", color = "black", stroke = 1) +
+  stat_summary(fun = mean, geom = "text", aes(label = round(..y.., 1)), 
+               vjust = -1.5, size = 5, color = "black") +
   scale_x_discrete(labels = c("-1" = "Female-biased", "0" = "Sex-neutral", "1" = "Male-biased"))+
   ylim(0, 80)+
   theme_minimal() +
@@ -1488,7 +1763,7 @@ C3_VII_a = ggplot(cumulative_enc_mxf_filt, aes(y = cumulative_enc_mxf_filt$dn.ds
 
 ```
 
-###VIII. Expression divergence vs dn/ds
+###VIII. Expression divergence vs dn/ds - Supplementary
 ```{r C3_VIII_a}
 #A For all the genes
 # Calculate correlation (Pearson)
@@ -1546,18 +1821,20 @@ sp_biased_dnds_enc <- A3_IV_a + A3_V_a + A3_VI_a + A3_VII_a + plot_layout(ncol =
 ts_biased_dnds_enc <- B3_III_a + B3_IV_a + B3_V_a + B3_VI_a + plot_layout(ncol = 2)
 sex_biased_dnds_enc <- C3_III_a + C3_IV_a + C3_V_a + C3_VI_a + plot_layout(ncol = 2)
 expvsdnds_biplots = A3_IX_a + A3_IX_b + B3_VIII_a + B3_VIII_b + C3_VIII_a + C3_VIII_b + plot_layout(ncol = 3)
-
+log_dn_ds_plots = A3_VI_b +  A3_VI_d + B3_V_b+  B3_V_d +C3_V_b + C3_V_d + plot_layout(ncol = 3)
 # Saving as pdf
 ggsave("../3-Output/DEGAnalysis/species_biased_dnds_enc.pdf", plot = sp_biased_dnds_enc, width = 34, height = 15)
 ggsave("../3-Output/DEGAnalysis/tissue_biased_dnds_enc.pdf", plot = ts_biased_dnds_enc, width = 34, height = 15)
 ggsave("../3-Output/DEGAnalysis/sex_biased_dnds_enc.pdf", plot = sex_biased_dnds_enc, width = 34, height = 15)
 ggsave("../3-Output/DEGAnalysis/expvsdnds_biplots.pdf", plot = expvsdnds_biplots, width = 34, height = 15)
+ggsave("../3-Output/DEGAnalysis/log_dnds_plots.pdf", plot = log_dn_ds_plots, width = 34, height = 15)
 
 #Saving as png
 ggsave("../3-Output/DEGAnalysis/species_biased_dnds_enc.png", plot = sp_biased_dnds_enc, width = 34, height = 15)
 ggsave("../3-Output/DEGAnalysis/tissue_biased_dnds_enc.png", plot = ts_biased_dnds_enc, width = 34, height = 15)
 ggsave("../3-Output/DEGAnalysis/sex_biased_dnds_enc.png", plot = sex_biased_dnds_enc, width = 34, height = 15)
 ggsave("../3-Output/DEGAnalysis/expvsdnds_biplots.png", plot = expvsdnds_biplots, width = 34, height = 15)
+ggsave("../3-Output/DEGAnalysis/log_dnds_plots.png", plot = log_dn_ds_plots, width = 34, height = 15)
 
 ```
 
@@ -1574,6 +1851,14 @@ ggsave("../3-Output/DEGAnalysis/cumulative_exp_dnds_enc.pdf", plot = cumulative_
 #Saving as png
 ggsave("../3-Output/DEGAnalysis/cumulative_exp_dnds_enc.png", plot = cumulative_exp_dnds_enc, width = 34, height = 15)
 
+
+enc_by_dgecat = A3_VII_a + B3_VI_a + C3_VI_a + plot_layout(ncol = 3)
+
+# Saving as pdf
+ggsave("../3-Output/DEGAnalysis/dge_enc.pdf", plot = enc_by_dgecat, width = 34, height = 15)
+
+#Saving as png
+ggsave("../3-Output/DEGAnalysis/dge_enc.png", plot = enc_by_dgecat, width = 34, height = 15)
 ```
 
 
@@ -2055,6 +2340,7 @@ gxs_ortho_emm_dnds <- emmeans(gxs_ortho_glm_dnds, pairwise ~ gxs)
 summary(gxs_ortho_emm_dnds)
 
 ```
+
 
 
 

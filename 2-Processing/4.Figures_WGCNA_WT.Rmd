@@ -1096,7 +1096,6 @@ M4_cre_overlap = cre_biased %>% filter(X %in% M4_hubgenes) #as M4 has Cre-biased
 ```
 
 ##B. Visualize the overlap between tissue-biased hub genes (from WGCNA) and tissue-biased genes (from DESeq2)
-
 ```{r}
 gxs_res <- read.csv("../3-Output/DEGAnalysis/gonadxsoma_genes.csv")
 
@@ -1435,7 +1434,7 @@ mean_values <- cumulative_enc_wgcna_filt %>%
   summarize(mean_dn_ds = mean(dn.ds_corrected, na.rm = TRUE))
 
 # Specify the desired order of Module_num
-module_order <- c("M0", "M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9", "M10", "M11")
+module_order <- c("M10", "M4", "M6", "M3", "M11", "M2", "M7", "M5", "M1", "M9", "M8", "M0")
 
 #Converting to log normalized values
 cumulative_enc_wgcna_filt$log_dn_ds <- log(cumulative_enc_wgcna_filt$dn.ds_corrected + 1, base = 10)  # Add 1 to avoid log(0)
@@ -1465,7 +1464,7 @@ D9_I_a = ggplot(cumulative_enc_wgcna_filt,
 
 #Log normalized data
 D9_I_b = ggplot(cumulative_enc_wgcna_filt, 
-       aes(x = factor(Module_num, levels = module_order), y = log_dn_ds)) +
+       aes(x = factor(Module_num, levels = module_order), y = dn.ds_corrected)) +
   geom_violin(fill = "lightblue", color = "black") +
   labs(title = "Violin plot of log dn/ds by Modules",
        x = "Modules",
@@ -1473,10 +1472,14 @@ D9_I_b = ggplot(cumulative_enc_wgcna_filt,
   stat_summary(fun = mean, geom = "point", shape = 21, size = 2, 
                fill = "white", color = "black", stroke = 1) +
   geom_text(data = mean_values, aes(x = Module_num, y = mean_dn_ds, 
-                                     label = round(mean_dn_ds, 2)),
+                                    label = round(mean_dn_ds, 2)),
             vjust = -5, size = 5, color = "black") +
-  # scale_x_discrete(labels = c("black" = "M4","blue" = "M9", "brown" = "M2", "green" = "M6", "greenyellow" = "M3", "grey" = "M0", "magenta" = "M1", "pink" = "M7", "purple" = "M11", "red" = "M8", "turquoise" = "M5", "yellow" = "M10"))+
-  #ylim(0, 1)+
+  scale_y_log10(
+    labels = label_log(digits = 2), 
+    breaks = c(1e-10, 1e-8, 1e-6, 1e-4, 1e-2, 1, 1e2),
+    limits = c(0.0001, 100)
+  ) +
+  annotation_logticks(sides = "l") +
   theme_minimal()+
   theme(
     plot.title = element_text(size = 26, face = "bold", hjust = 0.5),
@@ -1484,7 +1487,60 @@ D9_I_b = ggplot(cumulative_enc_wgcna_filt,
     axis.title.x = element_text(size = 18),
     axis.text.x = element_text(size = 16, face = "bold", colour = "black"),
     axis.text.y = element_text(size = 16, color = "black")
-    )
+  )
+
+#LINEAR SCALE BOXPLOT
+D9_I_c = ggplot(cumulative_enc_wgcna_filt, 
+       aes(x = factor(Module_num, levels = module_order), y = dn.ds_corrected)) +
+  geom_boxplot(fill = "lightblue", color = "black") +
+  labs(title = "Violin plot of log dn/ds by Modules",
+       x = "Modules",
+       y = "dn/ds") +
+  stat_summary(fun = mean, geom = "point", shape = 21, size = 2, 
+               fill = "white", color = "black", stroke = 1) +
+  geom_text(data = mean_values, aes(x = Module_num, y = mean_dn_ds, 
+                                    label = round(mean_dn_ds, 2)),
+            vjust = -5, size = 5, color = "black") +
+  theme_minimal()+
+  theme(
+    plot.title = element_text(size = 26, face = "bold", hjust = 0.5),
+    axis.title.y = element_text(size = 18, hjust = 0.5),
+    axis.title.x = element_text(size = 18),
+    axis.text.x = element_text(size = 16, face = "bold", colour = "black"),
+    axis.text.y = element_text(size = 16, color = "black")
+  )
+
+#LOG SCALE BOXPLOT
+D9_I_d = ggplot(cumulative_enc_wgcna_filt, 
+       aes(x = factor(Module_num, levels = module_order), y = dn.ds_corrected)) +
+  geom_boxplot(fill = "lightblue", color = "black") +
+  labs(title = "Violin plot of log dn/ds by Modules",
+       x = "Modules",
+       y = "dn/ds") +
+  stat_summary(fun = mean, geom = "point", shape = 21, size = 2, 
+               fill = "white", color = "black", stroke = 1) +
+  geom_text(data = mean_values, aes(x = Module_num, y = mean_dn_ds, 
+                                    label = round(mean_dn_ds, 2)),
+            vjust = -5, size = 5, color = "black") +
+  theme_minimal()+
+  scale_y_log10(
+    labels = label_log(digits = 2), 
+    breaks = c(1e-10, 1e-8, 1e-6, 1e-4, 1e-2, 1, 1e2),
+    limits = c(0.0001, 100)
+  ) +
+  annotation_logticks(sides = "l") +
+  theme(
+    plot.title = element_text(size = 26, face = "bold", hjust = 0.5),
+    axis.title.y = element_text(size = 18, hjust = 0.5),
+    axis.title.x = element_text(size = 18),
+    axis.text.x = element_text(size = 16, face = "bold", colour = "black"),
+    axis.text.y = element_text(size = 16, color = "black")
+  )
+
+
+ 
+
+
 ```
 
 ###II. Violin plot for ENC by modules
@@ -1670,7 +1726,7 @@ summary(wgcna_emm_dnds)
 ###VI. Organizing Plots
 ```{r, warning=FALSE}
 # Arrange plots in a single panel
-combined_dn_ds <- D9_I_a + D9_II_a + D9_III_a + D9_IV_b +plot_layout(ncol = 2)
+combined_dn_ds <- D9_I_d + D9_II_a + D9_III_a + D9_IV_b +plot_layout(ncol = 2)
 
 
 # Saving as pdf

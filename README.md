@@ -1,12 +1,12 @@
 # Sex-biased and tissue-biased gene expression evolution in _C. remanei_ and _C. latens_
 
 ## Author
-Athmaja Viswanath 1, Daniel D. Fusca 1, John A. Calarco 2, and Asher D. Cutter 1*
-1Department of Ecology & Evolutionary Biology
-2Department of Cell & Systems Biology
+Athmaja Viswanath <sup>1</sup>1, Daniel D. Fusca <sup>1</sup>, John A. Calarco <sup>2</sup>, and Asher D. Cutter <sup>1</sup><sup>*</sup>
+<sup>1</sup>Department of Ecology & Evolutionary Biology
+<sup>2</sup>Department of Cell & Systems Biology
 University of Toronto, Toronto, Ontario, M5S3B2 Canada
 
-*Author for correspondence: asher.cutter@utoronto.ca
+<sup>*</sup>Author for correspondence: asher.cutter@utoronto.ca
 
 **Athmaja Viswanath**  
 Email: [athmaja96@gmail.com](mailto:athmaja96@gmail.com)  

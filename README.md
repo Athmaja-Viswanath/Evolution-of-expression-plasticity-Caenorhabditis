@@ -3,7 +3,7 @@
 ## Author
 Athmaja Viswanath <sup>1</sup>1, Daniel D. Fusca <sup>1</sup>, John A. Calarco <sup>2</sup>, and Asher D. Cutter <sup>1</sup><sup>*</sup>
 
-<sup>1</sup>Department of Ecology & Evolutionary Biology
+<sup>1</sup>Department of Ecology & Evolutionary Biology 
 <sup>2</sup>Department of Cell & Systems Biology
 University of Toronto, Toronto, Ontario, M5S3B2 Canada
 

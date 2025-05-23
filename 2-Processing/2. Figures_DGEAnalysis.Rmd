@@ -15,6 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 # Load required libraries
 library(dplyr)
 library(ggplot2)
+library(cowplot)
 library(tibble)
 library(ggstats)
 library(UpSetR)
@@ -265,6 +266,8 @@ crexclat_a_x$sig[ crexclat_a_x$pval < 0.05 & abs(log2(crexclat_a_x$enrichement))
 crexclat_a_x$Sample = "Species-biased"
 
 crexclat_a_x_2 = as.data.frame(table(crexclat_res_chr$A_X, crexclat_res_chr$crexclat))
+
+
 B1_IV_a = ggplot(crexclat_a_x %>% filter(A_X == "X"), aes(x=log2(enrichement), y=CrexClat)) +
   #geom_rect(data=rectX, aes(xmin=x1, xmax=x2, ymin=y1, ymax=y2), fill="grey90", alpha=0.5, inherit.aes=F) +
   geom_vline(xintercept=0, size=1) +
@@ -272,6 +275,7 @@ B1_IV_a = ggplot(crexclat_a_x %>% filter(A_X == "X"), aes(x=log2(enrichement), y
   annotate(geom="label", label="autosomes", y=7.5, x=-.75, fill="black", color="white") +
   annotate(geom="label", label="X", y=7.5, x=.75, fill="black", color="white") +
   #facet_wrap(~Sample)+
+  xlim(-5, 3)+
   labs(y="", x=expression(paste("enrichment (log"[2], " odds ratio)"))) +
   background_grid(major="x", size.major = 0.2, colour.major = "grey75") +
   geom_text(aes(x=log2(enrichement)/2, label=sig), size=5, show.legend=F, color="white") +
@@ -386,6 +390,7 @@ gxs_a_x$sig[ gxs_a_x$pval < 0.05 & abs(log2(gxs_a_x$enrichement)) > 0.5 ] = "*"
 gxs_a_x$Sample = "Tissue-biased"
 
 gxs_a_x_2 = as.data.frame(table(gxs_res_chr$A_X, gxs_res_chr$gxs))
+
 C1_III_a = ggplot(gxs_a_x %>% filter(A_X == "X"), aes(x=log2(enrichement), y=gxs)) +
   #geom_rect(data=rectX, aes(xmin=x1, xmax=x2, ymin=y1, ymax=y2), fill="grey90", alpha=0.5, inherit.aes=F) +
   geom_vline(xintercept=0, size=1) +
@@ -393,6 +398,7 @@ C1_III_a = ggplot(gxs_a_x %>% filter(A_X == "X"), aes(x=log2(enrichement), y=gxs
   annotate(geom="label", label="autosomes", y=7.5, x=-.75, fill="black", color="white") +
   annotate(geom="label", label="X", y=7.5, x=.75, fill="black", color="white") +
   #facet_wrap(~Sample)+
+  xlim(-5, 3)+
   labs(y="", x=expression(paste("enrichment (log"[2], " odds ratio)"))) +
   background_grid(major="x", size.major = 0.2, colour.major = "grey75") +
   geom_text(aes(x=log2(enrichement)/2, label=sig), size=5, show.legend=F, color="white") +
@@ -507,6 +513,7 @@ mxf_a_x$sig[ mxf_a_x$pval < 0.05 & abs(log2(mxf_a_x$enrichement)) > 0.5 ] = "*"
 mxf_a_x$Sample = "Sex-biased"
 
 mxf_a_x_2 = as.data.frame(table(mxf_res_chr$A_X, mxf_res_chr$mxf))
+
 D1_III_a = ggplot(mxf_a_x %>% filter(A_X == "X"), aes(x=log2(enrichement), y=mxf)) +
   #geom_rect(data=rectX, aes(xmin=x1, xmax=x2, ymin=y1, ymax=y2), fill="grey90", alpha=0.5, inherit.aes=F) +
   geom_vline(xintercept=0, size=1) +
@@ -514,6 +521,7 @@ D1_III_a = ggplot(mxf_a_x %>% filter(A_X == "X"), aes(x=log2(enrichement), y=mxf
   annotate(geom="label", label="autosomes", y=7.5, x=-.75, fill="black", color="white") +
   annotate(geom="label", label="X", y=7.5, x=.75, fill="black", color="white") +
   #facet_wrap(~Sample)+
+   xlim(-5, 3)+
   labs(y="", x=expression(paste("enrichment (log"[2], " odds ratio)"))) +
   background_grid(major="x", size.major = 0.2, colour.major = "grey75") +
   geom_text(aes(x=log2(enrichement)/2, label=sig), size=5, show.legend=F, color="white") +

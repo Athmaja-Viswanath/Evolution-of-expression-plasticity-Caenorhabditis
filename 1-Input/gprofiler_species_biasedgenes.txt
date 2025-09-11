@@ -1,0 +1,60 @@
+source	term_name	term_id	adjusted_p_value	negative_log10_of_adjusted_p_value	intersection_size	Type
+GO:MF	catalytic activity	GO:0003824	9.725470184425208e-7	6.012089393234624	1088	Overrepresentation
+GO:MF	transmembrane transporter activity	GO:0022857	1.69465E-06	5.770918901	275	Overrepresentation
+GO:MF	transporter activity	GO:0005215	1.33504E-05	4.874506004130119	279	Overrepresentation
+GO:MF	ribonucleotide binding	GO:0032553	0.00047702	3.321463580152415	381	Overrepresentation
+GO:MF	purine ribonucleotide binding	GO:0032555	0.000946353	3.023946624048457	375	Overrepresentation
+GO:MF	purine ribonucleoside triphosphate binding	GO:0035639	0.001287036	2.8904093718705326	371	Overrepresentation
+GO:MF	small molecule binding	GO:0036094	0.001392419	2.8562301500592318	451	Overrepresentation
+GO:MF	purine nucleotide binding	GO:0017076	0.001767348	2.7526780213282005	388	Overrepresentation
+GO:MF	anion binding	GO:0043168	0.002034473	2.6915480947544763	415	Overrepresentation
+GO:MF	carbohydrate derivative binding	GO:0097367	0.002248575	2.648092623340569	394	Overrepresentation
+GO:MF	ion binding	GO:0043167	0.003281988	2.4838630627128793	834	Overrepresentation
+GO:MF	nucleoside phosphate binding	GO:1901265	0.003470924	2.4595549306962523	418	Overrepresentation
+GO:MF	nucleotide binding	GO:0000166	0.003470924	2.4595549306962523	418	Overrepresentation
+GO:MF	monoatomic cation channel activity	GO:0005261	0.013015353110740058	1.8855440448451322	61	Overrepresentation
+GO:MF	monoatomic ion transmembrane transporter activity	GO:0015075	0.020071983	1.6974097285356198	146	Overrepresentation
+GO:MF	hydrolase activity	GO:0016787	0.022433429413195347	1.6491043304571473	433	Overrepresentation
+GO:MF	passive transmembrane transporter activity	GO:0022803	0.023774687803428184	1.6238851772775567	111	Overrepresentation
+GO:MF	channel activity	GO:0015267	0.023774687803428184	1.6238851772775567	111	Overrepresentation
+GO:MF	adenyl ribonucleotide binding	GO:0032559	0.033228589	1.4784880973517427	310	Overrepresentation
+GO:MF	monoatomic ion channel activity	GO:0005216	0.035147336666780306	1.454107578602728	104	Overrepresentation
+GO:MF	hydrolase activity, acting on acid anhydrides	GO:0016817	0.036033961	1.443287999701964	111	Overrepresentation
+GO:MF	pyrophosphatase activity	GO:0016462	0.040330985	1.3943611686804753	109	Overrepresentation
+GO:MF	ATP binding	GO:0005524	0.04394484	1.3570921127897881	306	Overrepresentation
+GO:MF	hydrolase activity, acting on acid anhydrides, in phosphorus-containing anhydrides	GO:0016818	0.049919592787776655	1.301728966008783	110	Overrepresentation
+GO:BP	locomotion	GO:0040011	0.000179099	3.7469074539126437	91	Overrepresentation
+GO:BP	negative regulation of cellular process	GO:0048523	0.000833755	3.0789613644386717	137	Overrepresentation
+GO:BP	response to abiotic stimulus	GO:0009628	0.001179371	2.9283495886694704	53	Overrepresentation
+GO:BP	system development	GO:0048731	0.00174893	2.757227476633916	110	Overrepresentation
+GO:BP	localization	GO:0051179	0.001771189	2.751735044107162	512	Overrepresentation
+GO:BP	multicellular organism development	GO:0007275	0.002542264	2.594779432	234	Overrepresentation
+GO:BP	establishment of localization	GO:0051234	0.005789419	2.2373650332399726	477	Overrepresentation
+GO:BP	negative regulation of biological process	GO:0048519	0.007419896	2.1296021658539366	163	Overrepresentation
+GO:BP	reproduction	GO:0000003	0.012806509	1.8925692447732223	155	Overrepresentation
+GO:BP	transport	GO:0006810	0.017577667807985593	1.7550387473118634	461	Overrepresentation
+GO:BP	negative regulation of cellular biosynthetic process	GO:0031327	0.01831036	1.7373031250641233	77	Overrepresentation
+GO:BP	reproductive process	GO:0022414	0.019943206	1.7002050305194722	143	Overrepresentation
+GO:BP	multicellular organismal process	GO:0032501	0.021141452880944912	1.674865170458312	383	Overrepresentation
+GO:BP	behavior	GO:0007610	0.023474765231237076	1.6293987423755085	91	Overrepresentation
+GO:BP	negative regulation of biosynthetic process	GO:0009890	0.028529216	1.5447101655954527	77	Overrepresentation
+GO:BP	negative regulation of cellular metabolic process	GO:0031324	0.038477956	1.4147880079736517	82	Overrepresentation
+GO:BP	response to stimulus	GO:0050896	0.04262622	1.3703231809385836	443	Overrepresentation
+GO:BP	response to external stimulus	GO:0009605	0.049039835	1.3094510014207965	86	Overrepresentation
+GO:CC	cytoplasm	GO:0005737	0.000226919	3.6441297565020006	524	Overrepresentation
+GO:CC	intracellular anatomical structure	GO:0005622	0.000231373	3.6356873809965387	1018	Overrepresentation
+GO:CC	microtubule organizing center	GO:0005815	0.000714396	3.1460610468627785	28	Overrepresentation
+GO:CC	organelle	GO:0043226	0.004739435	2.3242734047081086	907	Overrepresentation
+GO:CC	neuron projection	GO:0043005	0.011453356078931793	1.941067237079833	51	Overrepresentation
+GO:CC	plasma membrane bounded cell projection	GO:0120025	0.012476830575110735	1.9038957222299893	73	Overrepresentation
+GO:CC	cell projection	GO:0042995	0.014263767151745368	1.845765759396464	75	Overrepresentation
+GO:CC	membrane-bounded organelle	GO:0043227	0.020003635974817004	1.698891057322067	761	Overrepresentation
+GO:CC	somatodendritic compartment	GO:0036477	0.023402449629638063	1.6307386808397177	42	Overrepresentation
+GO:CC	intracellular organelle	GO:0043229	0.032287015669855555	1.490972096	883	Overrepresentation
+GO:CC	nuclear lumen	GO:0031981	0.047854817	1.3200743388736798	71	Overrepresentation
+GO:MF	protein binding	GO:0005515	4.85325E-06	5.3139672061934915	654	Underrepresentation
+GO:MF	structural constituent of chromatin	GO:0030527	0.002352074	2.6285490679890398	4	Underrepresentation
+GO:MF	structural constituent of cuticle	GO:0042302	0.003302429	2.4811665557160216	13	Underrepresentation
+GO:MF	structural molecule activity	GO:0005198	0.025481518	1.5937747089740788	64	Underrepresentation
+GO:CC	nucleosome	GO:0000786	0.002413066	2.6174308882248667	5	Underrepresentation
+GO:CC	membrane	GO:0016020	0.038860378	1.4104929765972885	1669	Underrepresentation

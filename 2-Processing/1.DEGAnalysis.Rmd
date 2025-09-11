@@ -760,3 +760,15 @@ combined_speciesgenes = rbind(cre_mxf_table, cre_gxs_table, clat_mxf_table, clat
 
 ```
 
+
+
+###############################################
+##SUPPLEMENTARY FILES/TABLES##########################
+###############################################
+#1. Species-biased orthologous genes 
+```{r}
+crexclat_res #species-biased info
+gxs_res #tissue-biased genes
+mxf_res #sex-biased 
+```
+

@@ -1042,7 +1042,7 @@ A3_VIII_a= ggplot(cumulative_enc_deseq2_filt, aes(y = cumulative_enc_deseq2_filt
 
 ```
 
-###IX. Expression divergence vs dn/ds
+###IX. Expression divergence vs dn/ds - Supplementary
 ```{r A3_IX_a}
 #A For all the genes
 # Calculate correlation (Pearson)
@@ -1058,6 +1058,8 @@ A3_IX_a = ggplot(cumulative_enc_deseq2_filt, aes(x = abs(log2FoldChange), y = dn
     y = expression(d[n]/d[s]),
     title = "Species-biased Genes I"
   ) +
+  # xlim(0, 20)+
+  # ylim(0, 1.2)+
   annotate("text", x = max(cumulative_enc_deseq2_filt$log2FoldChange) * 0.7, 
            y = max(cumulative_enc_deseq2_filt$dn.ds_corrected) * 0.9, 
            label = paste("r =", round(correlation_all, 2)), 
@@ -1074,6 +1076,15 @@ plot_data <- na.omit(non_conserved[, c("dn.ds_corrected", "log2FoldChange", "cre
 # Calculate correlation (Pearson)
 correlation <- cor(plot_data$log2FoldChange, plot_data$dn.ds_corrected)
 
+cor_test_result_cre <- cor.test(plot_data$log2FoldChange, 
+                            plot_data$dn.ds_corrected, 
+                            method = "pearson")
+
+# Extract r and p-value
+correlation_cre_0 <- cor_test_result_cre$estimate  # Pearson's r
+p_value_cre <- cor_test_result_cre$p.value       # p-value
+
+
 # Plot
 A3_IX_b <- ggplot(plot_data, aes(x = abs(log2FoldChange), y = dn.ds_corrected, color = crexclat)) +
   geom_point(alpha = 0.6, size = 2.5) +
@@ -1084,11 +1095,68 @@ A3_IX_b <- ggplot(plot_data, aes(x = abs(log2FoldChange), y = dn.ds_corrected, c
     y = expression(d[n]/d[s]),
     title = "Species-biased Genes II"
   ) +
+  xlim(0, 20)+
+  ylim(0, 1.2) +
   annotate("text", x = max(plot_data$log2FoldChange) * 0.7, 
            y = max(plot_data$dn.ds_corrected) * 0.9, 
            label = paste("r =", round(correlation, 2)), 
            size = 5, color = "black") +
   theme_minimal(base_size = 16)
+
+
+##Looking at linear model for each type of species-biased genes
+
+library(ggplot2)
+library(ggpmisc)
+
+cre_1 = subset(cumulative_enc_deseq2_filt, crexclat == "Higher in Cre")$log2FoldChange
+cor_cre <- cor.test(abs(cre_1),subset(cumulative_enc_deseq2_filt, crexclat == "Higher in Cre")$dn.ds_corrected, method = "pearson")
+
+clat_1 = subset(cumulative_enc_deseq2_filt, crexclat == "Higher in Clat")$log2FoldChange
+cor_clat = cor.test(abs(clat_1), subset(cumulative_enc_deseq2_filt, crexclat == "Higher in Clat")$dn.ds_corrected)
+
+
+A3_IX_c = ggplot(plot_data, aes(x = (log2FoldChange), y = dn.ds_corrected, color = crexclat)) +
+  geom_point(alpha = 0.6, size = 2.5) +
+  geom_smooth(method = "lm", se = FALSE, aes(linetype = crexclat)) +
+  stat_poly_eq(
+    aes(label = paste(..eq.label.., ..rr.label.., ..p.value.label.., sep = "~~~")),
+    formula = y ~ x, parse = TRUE,
+    label.x.npc = "left", label.y.npc = "top"
+  ) +
+  
+  scale_color_manual(values = c("Higher in Cre" = "#E41A1C", "Higher in Clat" = "blue")) +
+  scale_linetype_manual(values = c("Higher in Cre" = "solid", "Higher in Clat" = "dashed")) +
+  
+  labs(
+    x = expression("log"[2]*" Fold Change"),
+    y = expression(d[n]/d[s]),
+    title = "Selection vs Expression Divergence",
+    color = "Direction",
+    linetype = "Direction"
+  ) + theme_minimal(base_size = 14)
+
+A3_IX_d = ggplot(plot_data, aes(x = abs(log2FoldChange), y = dn.ds_corrected, color = crexclat)) +
+  geom_point(alpha = 0.6, size = 2.5) +
+  geom_smooth(method = "lm", se = FALSE, aes(linetype = crexclat)) +
+  xlim(0, 15) +
+  ylim(0, 1.25)+
+  stat_poly_eq(
+    aes(label = paste(..eq.label.., ..rr.label.., ..p.value.label.., sep = "~~~")),
+    formula = y ~ x, parse = TRUE,
+    label.x.npc = "left", label.y.npc = "top"
+  ) +
+  
+  scale_color_manual(values = c("Higher in Cre" = "#E41A1C", "Higher in Clat" = "blue")) +
+  scale_linetype_manual(values = c("Higher in Cre" = "solid", "Higher in Clat" = "dashed")) +
+  
+  labs(
+    x = expression("log"[2]*" Fold Change"),
+    y = expression(d[n]/d[s]),
+    title = "Selection vs Expression Divergence",
+    color = "Direction",
+    linetype = "Direction"
+  ) + theme_minimal(base_size = 14)
 
 ```
 
@@ -1406,11 +1474,12 @@ B3_VII_a = ggplot(cumulative_enc_gxs_filt, aes(y = cumulative_enc_gxs_filt$dn.ds
 
 ```
 
-###VIII. Expression divergence vs dn/ds
+###VIII. Expression divergence vs dn/ds - Supplementary
 ```{r B3_VIII_a}
 #A For all the genes
 # Calculate correlation (Pearson)
 correlation_gs <- cor(cumulative_enc_gxs_filt$log2FoldChange, cumulative_enc_gxs_filt$dn.ds_corrected)
+
 
 # Plot
 B3_VIII_a = ggplot(cumulative_enc_gxs_filt, aes(x = abs(log2FoldChange), y = dn.ds_corrected, color = gxs )) +
@@ -1422,6 +1491,8 @@ B3_VIII_a = ggplot(cumulative_enc_gxs_filt, aes(x = abs(log2FoldChange), y = dn.
     y = expression(d[n]/d[s]),
     title = "Tissue-biased Genes I"
   ) +
+  xlim(0, 20)+
+  ylim(0, 1.2)+
   annotate("text", x = max(cumulative_enc_gxs_filt$log2FoldChange) * 0.7, 
            y = max(cumulative_enc_gxs_filt$dn.ds_corrected) * 0.9, 
            label = paste("r =", round(correlation_gs, 2)), 
@@ -1438,6 +1509,15 @@ plot_data_gs <- na.omit(non_conserved_gs[, c("dn.ds_corrected", "log2FoldChange"
 # Calculate correlation (Pearson)
 correlation_gs <- cor(plot_data_gs$log2FoldChange, plot_data_gs$dn.ds_corrected)
 
+
+cor_test_result <- cor.test(plot_data_gs$log2FoldChange, 
+                            plot_data_gs$dn.ds_corrected, 
+                            method = "pearson")
+
+# Extract r and p-value
+correlation_gs_0 <- cor_test_result$estimate  # Pearson's r
+p_value_gs <- cor_test_result$p.value       # p-value
+
 # Plot
 B3_VIII_b <- ggplot(plot_data_gs, aes(x = abs(log2FoldChange), y = dn.ds_corrected, color = gxs)) +
   geom_point(alpha = 0.6, size = 2.5) +
@@ -1448,11 +1528,69 @@ B3_VIII_b <- ggplot(plot_data_gs, aes(x = abs(log2FoldChange), y = dn.ds_correct
     y = expression(d[n]/d[s]),
     title = "Tissue-biased Gene II"
   ) +
+  xlim(0, 20)+
+  ylim(0, 1.2)+
   annotate("text", x = max(plot_data_gs$log2FoldChange) * 0.7, 
            y = max(plot_data_gs$dn.ds_corrected) * 0.9, 
            label = paste("r =", round(correlation_gs, 2)), 
            size = 5, color = "black") +
   theme_minimal(base_size = 16)
+
+
+##Looking at linear model for each type of tissue-biased genes
+
+library(ggplot2)
+library(ggpmisc)
+
+gonad_1 = subset(plot_data_gs, gxs == "Gonad-biased")$log2FoldChange
+cor_gonad <- cor.test(abs(gonad_1),subset(plot_data_gs, gxs == "Gonad-biased")$dn.ds_corrected)
+
+soma_1 = subset(plot_data_gs, gxs == "Soma-biased")$log2FoldChange
+cor_soma = cor.test(abs(soma_1), subset(plot_data_gs, gxs == "Soma-biased")$dn.ds_corrected)
+
+
+B3_VIII_c = ggplot(plot_data_gs, aes(x = (log2FoldChange), y = dn.ds_corrected, color = gxs)) +
+  geom_point(alpha = 0.6, size = 2.5) +
+  
+  geom_smooth(method = "lm", se = FALSE, aes(linetype = gxs)) +
+  
+  stat_poly_eq(
+    aes(label = paste(..eq.label.., ..rr.label.., ..p.value.label.., sep = "~~~")),
+    formula = y ~ x, parse = TRUE,
+    label.x.npc = "left", label.y.npc = "top"
+  ) +
+  scale_color_manual(values = c("Soma-biased" = "#E41A1C", "Gonad-biased" = "blue")) +
+  scale_linetype_manual(values = c("Soma-biased" = "solid", "Gonad-biased" = "dashed")) +
+  
+  labs(
+    x = expression("log"[2]*" Fold Change"),
+    y = expression(d[n]/d[s]),
+    title = "Selection vs Expression Divergence",
+    color = "Direction",
+    linetype = "Direction"
+  ) + theme_minimal(base_size = 14)
+
+B3_VIII_d = ggplot(plot_data_gs, aes(x = abs(log2FoldChange), y = dn.ds_corrected, color = gxs)) +
+  geom_point(alpha = 0.6, size = 2.5) +
+  xlim(0, 15) +
+  ylim(0, 1.25)+
+  geom_smooth(method = "lm", se = FALSE, aes(linetype = gxs)) +
+  
+  stat_poly_eq(
+    aes(label = paste(..eq.label.., ..rr.label.., ..p.value.label.., sep = "~~~")),
+    formula = y ~ x, parse = TRUE,
+    label.x.npc = "left", label.y.npc = "top"
+  ) +
+  scale_color_manual(values = c("Soma-biased" = "#E41A1C", "Gonad-biased" = "blue")) +
+  scale_linetype_manual(values = c("Soma-biased" = "solid", "Gonad-biased" = "dashed")) +
+  
+  labs(
+    x = expression("log"[2]*" Fold Change"),
+    y = expression(d[n]/d[s]),
+    title = "Selection vs Expression Divergence",
+    color = "Direction",
+    linetype = "Direction"
+  ) + theme_minimal(base_size = 14)
 
 ```
 
@@ -1787,6 +1925,8 @@ C3_VIII_a = ggplot(cumulative_enc_mxf_filt, aes(x = abs(log2FoldChange), y = dn.
     y = expression(d[n]/d[s]),
     title = "Sex-biased Genes I"
   ) +
+  xlim(0, 20)+
+  ylim(0, 1.2)+
   annotate("text", x = max(cumulative_enc_mxf_filt$log2FoldChange) * 0.7, 
            y = max(cumulative_enc_mxf_filt$dn.ds_corrected) * 0.9, 
            label = paste("r =", round(correlation_mf, 2)), 
@@ -1803,6 +1943,14 @@ plot_data_mf <- na.omit(non_conserved_mf[, c("dn.ds_corrected", "log2FoldChange"
 # Calculate correlation (Pearson)
 correlation_mf <- cor(plot_data_mf$log2FoldChange, plot_data_mf$dn.ds_corrected)
 
+cor_test_result_mf <- cor.test(plot_data_mf$log2FoldChange, 
+                            plot_data_mf$dn.ds_corrected, 
+                            method = "pearson")
+
+# Extract r and p-value
+correlation_mf_0 <- cor_test_result_mf$estimate  # Pearson's r
+p_value_mf <- cor_test_result_mf$p.value       # p-value
+
 # Plot
 C3_VIII_b <- ggplot(plot_data_mf, aes(x = abs(log2FoldChange), y = dn.ds_corrected, color = mxf)) +
   geom_point(alpha = 0.6, size = 2.5) +
@@ -1813,12 +1961,70 @@ C3_VIII_b <- ggplot(plot_data_mf, aes(x = abs(log2FoldChange), y = dn.ds_correct
     y = expression(d[n]/d[s]),
     title = "Sex-biased genes II"
   ) +
+  xlim(0, 20)+
+  ylim(0, 1.2)+
   annotate("text", x = max(plot_data_mf$log2FoldChange) * 0.7, 
            y = max(plot_data_mf$dn.ds_corrected) * 0.9, 
            label = paste("r =", round(correlation_mf, 2)), 
            size = 5, color = "black") +
   theme_minimal(base_size = 16)
 
+#Looking at linear model for each type of sex-biased genes
+
+library(ggplot2)
+library(ggpmisc)
+
+male_1 = subset(plot_data_mf, mxf == "Male-biased")$log2FoldChange
+cor_male <- cor.test(abs(male_1),subset(plot_data_mf, mxf == "Male-biased")$dn.ds_corrected)
+
+female_1 = subset(plot_data_mf, mxf == "Female-biased")$log2FoldChange
+cor_female = cor.test(abs(female_1), subset(plot_data_mf, mxf == "Female-biased")$dn.ds_corrected)
+
+
+C3_VIII_c = ggplot(plot_data_mf, aes(x = (log2FoldChange), y = dn.ds_corrected, color = mxf)) +
+  geom_point(alpha = 0.6, size = 2.5) +
+  
+  geom_smooth(method = "lm", se = FALSE, aes(linetype = mxf)) +
+  
+  stat_poly_eq(
+    aes(label = paste(..eq.label.., ..rr.label.., ..p.value.label.., sep = "~~~")),
+    formula = y ~ x, parse = TRUE,
+    label.x.npc = "left", label.y.npc = "top"
+  ) +
+  
+  scale_color_manual(values = c("Male-biased" = "#E41A1C", "Female-biased" = "blue")) +
+  scale_linetype_manual(values = c("Male-biased" = "solid", "Female-biased" = "dashed")) +
+  
+  labs(
+    x = expression("log"[2]*" Fold Change"),
+    y = expression(d[n]/d[s]),
+    title = "Selection vs Expression Divergence",
+    color = "Direction",
+    linetype = "Direction"
+  ) + theme_minimal(base_size = 14)
+
+C3_VIII_d = ggplot(plot_data_mf, aes(x = abs(log2FoldChange), y = dn.ds_corrected, color = mxf)) +
+  geom_point(alpha = 0.6, size = 2.5) +
+  
+  geom_smooth(method = "lm", se = FALSE, aes(linetype = mxf)) +
+  xlim(0, 15) +
+  ylim(0, 1.25)+
+  stat_poly_eq(
+    aes(label = paste(..eq.label.., ..rr.label.., ..p.value.label.., sep = "~~~")),
+    formula = y ~ x, parse = TRUE,
+    label.x.npc = "left", label.y.npc = "top"
+  ) +
+  
+  scale_color_manual(values = c("Male-biased" = "#E41A1C", "Female-biased" = "blue")) +
+  scale_linetype_manual(values = c("Male-biased" = "solid", "Female-biased" = "dashed")) +
+  
+  labs(
+    x = expression("log"[2]*" Fold Change"),
+    y = expression(d[n]/d[s]),
+    title = "Selection vs Expression Divergence",
+    color = "Direction",
+    linetype = "Direction"
+  ) + theme_minimal(base_size = 14)
 
 ```
 
@@ -2301,7 +2507,7 @@ summary(gxs_res_clat_emm)
 
 
 #5 Performing stats to check is average dn/ds is significantly different across different groups
-##A Orthologous species-biased genes
+##A Orthologous species-biased genes FIGURE 5 DATA
 
 ```{r}
 # Fit a GLM model (Gamma distribution, log link)
@@ -2318,6 +2524,8 @@ sp_ortho_emm_dnds <- emmeans(sp_ortho_glm_dnds, pairwise ~ crexclat)
 
 # Display the results
 summary(sp_ortho_emm_dnds)
+
+#note: It's comparing estimated group-level dN/dS values derived from a Gamma model — which is more appropriate for positive, skewed data like dN/dS — and usually approximates comparisons of geometric means rather than arithmetic means.
 ```
 
 
@@ -2355,4 +2563,70 @@ summary(gxs_ortho_emm_dnds)
 
 
 
+
+
+########################################
+
+
+##SUPPLEMENTARY PLOTS###################
+########################################
+#1
+```{r}
+# Load required libraries
+# library(UpSetR)
+# library(ComplexHeatmap)
+# library(tibble)
+
+# Create a list of gene names from various results
+genelist <- list(
+  "Sex" = row.names(mxf_res1), 
+  "SpxSex" = row.names(spxsex_res1), 
+  "TSxSex" = row.names(tsxsex_res1),
+  "Species" = row.names(crexclat_res1), 
+  "SpxTS" = row.names(spxts_res1), 
+  "Tissue" = row.names(gxs_res1)
+)
+
+#library(UpSetR)
+# Generate UpSet plot with specified parameters
+upset_data <- fromList(genelist)
+
+# First UpSet plot with frequency and degree grouping - all gene categories
+UpSetR::upset(
+  upset_data, 
+  nsets = 6, 
+  nintersects = NA, 
+  order.by = "freq", 
+  group.by = "degree",
+  mainbar.y.label = "Number of Common Genes", 
+  sets.x.label = "Total Number of Genes", 
+  set_size.show = TRUE, 
+  set_size.scale_max = 11000, 
+  set_size.numbers_size = 12, 
+  line.size = 0.5, 
+  point.size = 3
+)
+
+
+###Second upset plot using a different package and extract gene names
+
+##library(ComplexHeatmap)
+# Create a combination matrix for further analysis
+m3 <- make_comb_mat(genelist, min_set_size = 1)
+
+##### Creating Additional UpSet Plots #####
+
+# Plot with default settings
+UpSet(m3,
+      comb_order = order(comb_size(m3), decreasing = TRUE),
+      top_annotation = upset_top_annotation(m3,add_numbers = TRUE, ylim = c(0, 4000)),
+      right_annotation = upset_right_annotation(m3, add_numbers = TRUE))
+
+#saving as pdf
+ggsave("../Manuscript drafts/Figures/Supplementary/allcat_upset.pdf", width = 34, height = 15)
+
+#Saving as png
+ggsave("../Manuscript drafts/Figures/Supplementary/allcat_upset.png", width = 34, height = 15)
+
+```
 

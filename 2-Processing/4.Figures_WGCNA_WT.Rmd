@@ -730,7 +730,7 @@ A7_I_a = ggplot(yelow_gs_meme, aes(x=yelow_gs_meme$MEyellow, y=yelow_gs_meme$`ab
     axis.text.x = element_text(size = 16, face = "bold", colour = "black"),
     axis.text.y = element_text(size = 16, color = "black")
   )
-
+table(yelow_gs_meme$category)
 ```
 
 
@@ -758,6 +758,7 @@ black_gs_meme = cbind(mem_black, gs_black)
 ## Create a new column to categorize genes as "hub" or "non-hub"
 black_gs_meme$category = with(black_gs_meme, ifelse(MEblack>0.9 & `abs(gene.sig.cor[black_module, 1])`>0.9, "hub genes", "non-hub"))
 
+table(black_gs_meme$category)
 
 #####Gene significance vs module membership plot
 A7_II_a = ggplot(black_gs_meme, aes(x=black_gs_meme$MEblack, y=black_gs_meme$`abs(gene.sig.cor[black_module, 1])`, colour = black_gs_meme$category)) +
@@ -1527,7 +1528,7 @@ D9_I_d = ggplot(cumulative_enc_wgcna_filt,
             vjust = -5, size = 5, color = "black") +
   theme_minimal()+
   scale_y_log10(
-    labels = label_log(digits = 2), 
+    labels = label_log(digits = 4), 
     breaks = c(1e-3, 1e-2, 1e-1, 1, 1e1),
     limits = c(1e-3, 1e1)
   ) +
@@ -1542,6 +1543,41 @@ D9_I_d = ggplot(cumulative_enc_wgcna_filt,
 
 
  
+##Ascending according to median values
+
+# Step 2: Create an ordered factor based on median
+module_order <- median_values$Module_num
+cumulative_enc_wgcna_filt$Module_num <- factor(cumulative_enc_wgcna_filt$Module_num, levels = module_order)
+median_values$Module_num <- factor(median_values$Module_num, levels = module_order)
+
+# Step 3: Plot
+ggplot(cumulative_enc_wgcna_filt, 
+       aes(x = Module_num, y = dn.ds_corrected)) +
+  geom_boxplot(fill = "lightblue", color = "black") +
+  labs(title = "Violin plot of log dn/ds by Modules",
+       x = "Modules",
+       y = "dn/ds") +
+  stat_summary(fun = median, geom = "point", shape = 21, size = 2, 
+               fill = "white", color = "black", stroke = 1) +
+  geom_text(data = median_values, aes(x = Module_num, y = median_dn_ds, 
+                                      label = round(median_dn_ds, 2)),
+            vjust = -5, size = 5, color = "black") +
+  theme_minimal() +
+  scale_y_log10(
+    labels = scales::label_log(digits = 4), 
+    breaks = c(1e-3, 1e-2, 1e-1, 1, 1e1),
+    limits = c(1e-3, 1e1)
+  ) +
+  annotation_logticks(sides = "l") +
+  theme(
+    plot.title = element_text(size = 26, face = "bold", hjust = 0.5),
+    axis.title.y = element_text(size = 18, hjust = 0.5),
+    axis.title.x = element_text(size = 18),
+    axis.text.x = element_text(size = 16, face = "bold", colour = "black"),
+    axis.text.y = element_text(size = 16, color = "black")
+  )
+
+
 
 
 ```
@@ -1672,6 +1708,24 @@ tukey_Reslt_df = as.data.frame((tukey_result[["Module_num"]])) #20 significant c
 # Uncomment to write the results to text files
 write.csv(tukey_Reslt_df, file = "../3-Output/WGCNA/tukey_module_comparison.csv",
             row.names = TRUE, col.names = FALSE, quote = FALSE)
+
+# CLD letters to make tukey's values easy to display
+#library(multcompView)
+cld_data <- multcompLetters(tukey_result$Module_num[,"p adj"])
+
+# Turn into data frame
+cld_data_df <- data.frame(
+  Module_num = names(cld_data$Letters),
+  Letters = cld_data$Letters
+)
+
+# Compute y positions for label placement
+y_positions_data <- cumulative_enc_wgcna_filt %>%
+  group_by(Module_num) %>%
+  summarise(y_pos = max(log_dn_ds) * 1.1)
+
+cld_data_df <- left_join(cld_data_df, y_positions_data, by = "Module_num")
+
 
 ##Plotting with p-value highlighted
 #library(ggsignif)

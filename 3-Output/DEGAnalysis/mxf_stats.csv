@@ -1,0 +1,4 @@
+averages.mxf,averages.average_dn_ds,averages.average_enc,medians.mxf,medians.median_dn_ds,medians.median_enc,modes.mxf,modes.mode_dn_ds,modes.mode_enc
+female-biased,0.098668315,50.53103991,-1,0.053914008,50.93949472,-1,0.003937471,61
+sex-neutral,0.126682035,50.38764993,0,0.063538364,50.95153732,0,0.060674292,61
+male-biased,0.118168214,50.38340343,1,0.066553327,50.73946906,1,0.118682905,61

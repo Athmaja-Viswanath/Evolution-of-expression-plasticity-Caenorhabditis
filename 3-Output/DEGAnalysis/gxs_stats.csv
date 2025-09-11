@@ -1,0 +1,4 @@
+averages.gxs,averages.average_dn_ds,averages.average_enc,medians.gxs,medians.median_dn_ds,medians.median_enc,modes.gxs,modes.mode_dn_ds,modes.mode_enc
+gonad-biased,0.103835335,50.19088827,-1,0.059276806,50.58667247,-1,0.003937471,61
+tissue-neutral,0.165418211,51.00324295,0,0.107441779,51.504111,0,0.208013334,61
+soma-biased,0.089634675,50.28812608,1,0.045937452,50.77898369,1,0.118682905,61

@@ -1,0 +1,4 @@
+averages.crexclat,averages.average_dn_ds,averages.average_enc,medians.crexclat,medians.median_dn_ds,medians.median_enc,modes.crexclat,modes.mode_dn_ds,modes.mode_enc
+clat-biased,0.124307045,50.57786366,-1,0.067866337,50.96056285,-1,0.026994415,61
+conserved,0.100511974,50.10229028,0,0.052182384,50.55146967,0,0.003937471,61
+cre-biased,0.135361252,50.98248704,1,0.079097285,51.35619572,1,0.118682905,61

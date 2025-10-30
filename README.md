@@ -28,7 +28,6 @@ On-going analysis for _C. remanei_ and _C. latens_ datasets. This dataset contai
 
 ### 2-Processing
 - Contains scripts for Differential Gene Expression Analysis and Weighted gene co-expression netwrok analysis (WGCNA)
-- Scripts are part of on-going analyses and are subject to change
 
 ### 3-Output
 - Contains all the generated figures and additional files resulting from the analyses
